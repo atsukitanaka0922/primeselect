@@ -1,0 +1,109 @@
+/* 全体のスタイル */
+body {
+    font-family: 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴ Pro W3', Meiryo, メイリオ, Osaka, 'MS PGothic', arial, helvetica, sans-serif;
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+/* カードのホバーエフェクト */
+.card {
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 商品カード */
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+.card-price {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* ナビゲーションバー */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* フッター */
+footer {
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* パンくずリスト */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.5rem 0;
+}
+
+/* ページネーション */
+.pagination .page-link {
+    color: #007bff;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* フォーム */
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* ボタン */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* レビュー */
+.star-rating {
+    color: #ffc107;
+}
+
+/* 注文状態バッジ */
+.badge-pending {
+    background-color: #ffc107;
+}
+
+.badge-processing {
+    background-color: #17a2b8;
+}
+
+.badge-shipped {
+    background-color: #007bff;
+}
+
+.badge-delivered {
+    background-color: #28a745;
+}
+
+/* モバイル対応 */
+@media (max-width: 767.98px) {
+    .card-img-top {
+        height: 150px;
+    }
+}
