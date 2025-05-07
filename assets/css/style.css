@@ -1,3 +1,9 @@
+/**
+ * Prime Select ECサイト用スタイルシート
+ * 
+ * サイト全体のスタイルを定義します
+ */
+
 /* 全体のスタイル */
 body {
     font-family: 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴ Pro W3', Meiryo, メイリオ, Osaka, 'MS PGothic', arial, helvetica, sans-serif;
@@ -101,9 +107,39 @@ footer {
     background-color: #28a745;
 }
 
+.badge-cancelled {
+    background-color: #dc3545;
+}
+
+/* 商品詳細ページ */
+.product-main-image {
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.product-thumbnails .thumbnail-item {
+    cursor: pointer;
+    border: 1px solid #ddd;
+    padding: 3px;
+    border-radius: 4px;
+}
+
+.product-thumbnails .thumbnail-item:hover {
+    border-color: #007bff;
+}
+
 /* モバイル対応 */
 @media (max-width: 767.98px) {
     .card-img-top {
         height: 150px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    
+    .product-thumbnails .thumbnail-item {
+        width: 60px;
     }
 }

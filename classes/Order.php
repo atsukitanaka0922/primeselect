@@ -1,8 +1,18 @@
 <?php
+/**
+ * 注文クラス
+ * 
+ * 注文情報の管理と操作を行うクラス
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
 class Order {
+    // データベース接続とテーブル名
     private $conn;
     private $table_name = "orders";
     
+    // プロパティ
     public $id;
     public $user_id;
     public $total_amount;
@@ -11,11 +21,20 @@ class Order {
     public $status;
     public $created;
     
+    /**
+     * コンストラクタ
+     * 
+     * @param PDO $db データベース接続オブジェクト
+     */
     public function __construct($db) {
         $this->conn = $db;
     }
     
-    // 注文作成
+    /**
+     * 注文作成
+     * 
+     * @return int|false 作成成功時は注文ID、失敗時はfalse
+     */
     public function create() {
         // カートから合計金額を計算
         $cart = new Cart($this->conn);
@@ -60,7 +79,14 @@ class Order {
         return false;
     }
     
-    // 注文アイテム追加
+    /**
+     * 注文アイテム追加
+     * 
+     * @param int $order_id 注文ID
+     * @param int $product_id 商品ID
+     * @param int $quantity 数量
+     * @param float $price 価格
+     */
     public function addOrderItem($order_id, $product_id, $quantity, $price) {
         $query = "INSERT INTO order_items 
                 SET order_id = :order_id, 
@@ -79,7 +105,12 @@ class Order {
         $stmt->execute();
     }
     
-    // 注文情報取得
+    /**
+     * 注文情報取得
+     * 
+     * @param int $id 注文ID
+     * @return boolean 取得成功ならtrue
+     */
     public function read($id) {
         $query = "SELECT o.*, u.username, u.email 
                 FROM " . $this->table_name . " o 
@@ -106,7 +137,12 @@ class Order {
         return false;
     }
     
-    // 注文アイテム取得
+    /**
+     * 注文アイテム取得
+     * 
+     * @param int $order_id 注文ID
+     * @return PDOStatement 結果セット
+     */
     public function getOrderItems($order_id) {
         $query = "SELECT oi.*, p.name, p.image 
                 FROM order_items oi 
@@ -120,7 +156,13 @@ class Order {
         return $stmt;
     }
     
-    // 注文状態更新
+    /**
+     * 注文状態更新
+     * 
+     * @param int $order_id 注文ID
+     * @param string $status 新しいステータス
+     * @return boolean 更新成功ならtrue
+     */
     public function updateStatus($order_id, $status) {
         $query = "UPDATE " . $this->table_name . " SET status = ? WHERE id = ?";
         
@@ -131,7 +173,11 @@ class Order {
         return $stmt->execute();
     }
     
-    // 注文数取得（管理パネル用）
+    /**
+     * 注文数取得（管理パネル用）
+     * 
+     * @return int 注文数
+     */
     public function count() {
         $query = "SELECT COUNT(*) as total FROM " . $this->table_name;
         $stmt = $this->conn->prepare($query);
@@ -141,7 +187,12 @@ class Order {
         return $row['total'];
     }
     
-    // 最近の注文取得（管理パネル用）
+    /**
+     * 最近の注文取得（管理パネル用）
+     * 
+     * @param int $limit 取得件数
+     * @return PDOStatement 結果セット
+     */
     public function getRecent($limit = 10) {
         $query = "SELECT o.*, u.username 
                 FROM " . $this->table_name . " o 
@@ -155,7 +206,12 @@ class Order {
         return $stmt;
     }
     
-    // ユーザーの注文履歴取得
+    /**
+     * ユーザーの注文履歴取得
+     * 
+     * @param int $user_id ユーザーID
+     * @return PDOStatement 結果セット
+     */
     public function getUserOrders($user_id) {
         $query = "SELECT * FROM " . $this->table_name . " 
                 WHERE user_id = ? 

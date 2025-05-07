@@ -1,13 +1,34 @@
 <?php
+/**
+ * カートクラス
+ * 
+ * ショッピングカートの管理と操作を行うクラス
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
 class Cart {
+    // データベース接続とテーブル名
     private $conn;
     private $table_name = "cart";
     
+    /**
+     * コンストラクタ
+     * 
+     * @param PDO $db データベース接続オブジェクト
+     */
     public function __construct($db) {
         $this->conn = $db;
     }
     
-    // カートに商品を追加
+    /**
+     * カートに商品を追加
+     * 
+     * @param string $user_id ユーザーID
+     * @param int $product_id 商品ID
+     * @param int $quantity 数量
+     * @return boolean 追加成功ならtrue
+     */
     public function addItem($user_id, $product_id, $quantity = 1) {
         // 既存のカートアイテムをチェック
         $query = "SELECT * FROM " . $this->table_name . " WHERE user_id = ? AND product_id = ?";
@@ -42,7 +63,12 @@ class Cart {
         return false;
     }
     
-    // カートの中身を取得
+    /**
+     * カートの中身を取得
+     * 
+     * @param string $user_id ユーザーID
+     * @return PDOStatement 結果セット
+     */
     public function getItems($user_id) {
         $query = "SELECT c.id, c.product_id, c.quantity, p.name, p.price, p.image 
                 FROM " . $this->table_name . " c 
@@ -54,7 +80,12 @@ class Cart {
         return $stmt;
     }
     
-    // カートアイテム削除
+    /**
+     * カートアイテム削除
+     * 
+     * @param int $id カートアイテムID
+     * @return boolean 削除成功ならtrue
+     */
     public function removeItem($id) {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -62,7 +93,13 @@ class Cart {
         return $stmt->execute();
     }
     
-    // カート数量更新
+    /**
+     * カート数量更新
+     * 
+     * @param int $id カートアイテムID
+     * @param int $quantity 新しい数量
+     * @return boolean 更新成功ならtrue
+     */
     public function updateQuantity($id, $quantity) {
         $query = "UPDATE " . $this->table_name . " SET quantity = ? WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -71,7 +108,12 @@ class Cart {
         return $stmt->execute();
     }
     
-    // カート内全アイテム削除
+    /**
+     * カート内全アイテム削除
+     * 
+     * @param string $user_id ユーザーID
+     * @return boolean 削除成功ならtrue
+     */
     public function clear($user_id) {
         $query = "DELETE FROM " . $this->table_name . " WHERE user_id = ?";
         $stmt = $this->conn->prepare($query);

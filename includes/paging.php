@@ -1,4 +1,15 @@
 <?php
+/**
+ * ページネーションヘルパー関数
+ * 
+ * ページネーションのUI生成を行います
+ * 
+ * @param int $page 現在のページ番号
+ * @param int $total_rows 総レコード数
+ * @param int $records_per_page 1ページあたりのレコード数
+ * @param string $page_url ページベースURL
+ * @return string ページネーションHTML
+ */
 function getPaging($page, $total_rows, $records_per_page, $page_url) {
     // ページネーションオブジェクト
     $paging_arr = array();

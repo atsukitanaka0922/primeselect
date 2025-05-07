@@ -1,8 +1,18 @@
 <?php
+/**
+ * 商品クラス
+ * 
+ * 商品情報の管理と操作を行うクラス
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
 class Product {
+    // データベース接続とテーブル名
     private $conn;
     private $table_name = "products";
     
+    // プロパティ
     public $id;
     public $name;
     public $description;
@@ -12,11 +22,20 @@ class Product {
     public $created;
     public $category_name;
     
+    /**
+     * コンストラクタ
+     * 
+     * @param PDO $db データベース接続オブジェクト
+     */
     public function __construct($db) {
         $this->conn = $db;
     }
     
-    // 全商品取得
+    /**
+     * 全商品取得
+     * 
+     * @return PDOStatement 商品一覧の結果セット
+     */
     public function read() {
         $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.created, c.name as category_name 
                 FROM " . $this->table_name . " p 
@@ -27,7 +46,11 @@ class Product {
         return $stmt;
     }
     
-    // 単一商品取得
+    /**
+     * 単一商品取得
+     * 
+     * @return boolean 取得成功ならtrue
+     */
     public function readOne() {
         $query = "SELECT p.id, p.name, p.description, p.price, p.category_id, p.image, p.created, c.name as category_name 
                 FROM " . $this->table_name . " p 
@@ -46,10 +69,18 @@ class Product {
             $this->category_id = $row['category_id'] ?? null;
             $this->image = $row['image'];
             $this->category_name = $row['category_name'] ?? '未分類';
+            return true;
         }
+        
+        return false;
     }
     
-    // 商品検索メソッド
+    /**
+     * 商品検索メソッド
+     * 
+     * @param string $keyword 検索キーワード
+     * @return PDOStatement 検索結果
+     */
     public function search($keyword) {
         $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.created, c.name as category_name 
                 FROM " . $this->table_name . " p 
@@ -67,7 +98,14 @@ class Product {
         return $stmt;
     }
     
-    // カテゴリ別商品取得（ソート機能付き）
+    /**
+     * カテゴリ別商品取得（ソート機能付き）
+     * 
+     * @param int $category_id カテゴリID
+     * @param string $sort_by ソート列
+     * @param string $sort_order ソート順序
+     * @return PDOStatement 結果セット
+     */
     public function getByCategory($category_id, $sort_by = 'created', $sort_order = 'DESC') {
         $valid_sort_columns = ['name', 'price', 'created'];
         $valid_sort_orders = ['ASC', 'DESC'];
@@ -94,7 +132,15 @@ class Product {
         return $stmt;
     }
     
-    // 価格範囲で商品取得（ソート機能付き）
+    /**
+     * 価格範囲で商品取得（ソート機能付き）
+     * 
+     * @param float $min_price 最低価格
+     * @param float $max_price 最高価格
+     * @param string $sort_by ソート列
+     * @param string $sort_order ソート順序
+     * @return PDOStatement 結果セット
+     */
     public function getByPriceRange($min_price, $max_price, $sort_by = 'created', $sort_order = 'DESC') {
         $valid_sort_columns = ['name', 'price', 'created'];
         $valid_sort_orders = ['ASC', 'DESC'];
@@ -122,25 +168,15 @@ class Product {
         return $stmt;
     }
     
-    // ページネーション用メソッド
-    public function readPaging($from_record_num, $records_per_page) {
-        $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.created, c.name as category_name 
-                FROM " . $this->table_name . " p 
-                LEFT JOIN categories c ON p.category_id = c.id 
-                ORDER BY p.created DESC 
-                LIMIT ?, ?";
-        
-        $stmt = $this->conn->prepare($query);
-        
-        $stmt->bindParam(1, $from_record_num, PDO::PARAM_INT);
-        $stmt->bindParam(2, $records_per_page, PDO::PARAM_INT);
-        
-        $stmt->execute();
-        
-        return $stmt;
-    }
-    
-    // ソート機能付き商品読み込み
+    /**
+     * ソート機能付き商品読み込み
+     * 
+     * @param int $from_record_num 開始レコード番号
+     * @param int $records_per_page 1ページあたりのレコード数
+     * @param string $sort_by ソート列
+     * @param string $sort_order ソート順序
+     * @return PDOStatement 結果セット
+     */
     public function readWithSorting($from_record_num, $records_per_page, $sort_by = 'created', $sort_order = 'DESC') {
         $valid_sort_columns = ['name', 'price', 'created'];
         $valid_sort_orders = ['ASC', 'DESC'];
@@ -168,7 +204,35 @@ class Product {
         return $stmt;
     }
     
-    // 商品の総数取得
+    /**
+     * ページネーション用メソッド
+     * 
+     * @param int $from_record_num 開始レコード番号
+     * @param int $records_per_page 1ページあたりのレコード数
+     * @return PDOStatement 結果セット
+     */
+    public function readPaging($from_record_num, $records_per_page) {
+        $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.created, c.name as category_name 
+                FROM " . $this->table_name . " p 
+                LEFT JOIN categories c ON p.category_id = c.id 
+                ORDER BY p.created DESC 
+                LIMIT ?, ?";
+        
+        $stmt = $this->conn->prepare($query);
+        
+        $stmt->bindParam(1, $from_record_num, PDO::PARAM_INT);
+        $stmt->bindParam(2, $records_per_page, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        
+        return $stmt;
+    }
+    
+    /**
+     * 商品の総数取得
+     * 
+     * @return int 総商品数
+     */
     public function count() {
         $query = "SELECT COUNT(*) as total_rows FROM " . $this->table_name;
         
@@ -179,7 +243,12 @@ class Product {
         return $row['total_rows'];
     }
     
-    // 商品の全画像取得
+    /**
+     * 商品の全画像取得
+     * 
+     * @param int $product_id 商品ID
+     * @return PDOStatement 結果セット
+     */
     public function getProductImages($product_id) {
         $query = "SELECT * FROM product_images 
                 WHERE product_id = ? 
@@ -192,7 +261,12 @@ class Product {
         return $stmt;
     }
     
-    // メイン画像取得
+    /**
+     * メイン画像取得
+     * 
+     * @param int $product_id 商品ID
+     * @return string|null 画像ファイル名または null
+     */
     public function getMainImage($product_id) {
         $query = "SELECT image_file FROM product_images 
                 WHERE product_id = ? AND is_main = 1 

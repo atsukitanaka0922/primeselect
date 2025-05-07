@@ -1,12 +1,15 @@
 </main>
+    <!-- フッター -->
     <footer class="bg-dark text-white mt-5 py-4">
         <div class="container">
             <div class="row">
+                <!-- サイト情報 -->
                 <div class="col-md-4">
                     <h5>Prime Select</h5>
-                    <p>高品質な商品を低価格でお届けします。</p>
-                    <p>※こちらのサイトは模擬サイトで、実際の取引は行っておりません。</p>
+                    <p>高品質な商品を厳選してお届けします。</p>
                 </div>
+                
+                <!-- サイトマップ -->
                 <div class="col-md-4">
                     <h5>ページ</h5>
                     <ul class="list-unstyled">
@@ -16,6 +19,8 @@
                         <li><a href="about.php" class="text-white">会社概要</a></li>
                     </ul>
                 </div>
+                
+                <!-- 連絡先情報 -->
                 <div class="col-md-4">
                     <h5>お問い合わせ</h5>
                     <address>
@@ -26,6 +31,8 @@
                     </address>
                 </div>
             </div>
+            
+            <!-- コピーライト -->
             <div class="row mt-3">
                 <div class="col-12 text-center">
                     <p class="mb-0">&copy; <?php echo date('Y'); ?> Prime Select. All rights reserved.</p>
@@ -34,10 +41,9 @@
         </div>
     </footer>
 
-    <!-- jQuery と Bootstrap JS -->
+    <!-- JavaScript -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- カスタムJS -->
     <script src="assets/js/script.js"></script>
 </body>
 </html>

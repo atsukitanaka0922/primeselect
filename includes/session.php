@@ -1,4 +1,13 @@
 <?php
+/**
+ * セッション管理機能
+ * 
+ * セキュアなセッション管理を提供します
+ */
+
+/**
+ * セキュアなセッションを開始する
+ */
 function sec_session_start() {
     $session_name = 'secure_session';
     $secure = true; // HTTPSの場合はtrue
@@ -23,6 +32,11 @@ function sec_session_start() {
     session_regenerate_id();
 }
 
+/**
+ * ログイン状態をチェック
+ * 
+ * @return boolean ログインしていればtrue
+ */
 function check_login_status() {
     if(isset($_SESSION['user_id'])) {
         return true;
@@ -30,6 +44,9 @@ function check_login_status() {
     return false;
 }
 
+/**
+ * ログインしていなければログインページにリダイレクト
+ */
 function redirect_if_not_logged_in() {
     if(!check_login_status()) {
         // 現在のURLを保存

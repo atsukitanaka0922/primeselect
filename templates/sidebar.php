@@ -1,3 +1,11 @@
+<?php
+/**
+ * サイドバーテンプレート
+ * 
+ * カテゴリリストと人気商品を表示します。
+ */
+?>
+<!-- カテゴリリスト -->
 <div class="card mb-4">
     <div class="card-header">カテゴリ</div>
     <div class="card-body">
@@ -20,6 +28,7 @@
     </div>
 </div>
 
+<!-- 人気商品 -->
 <div class="card">
     <div class="card-header">人気商品</div>
     <div class="card-body">

@@ -13,15 +13,19 @@
 </head>
 <body>
     <header>
+        <!-- ナビゲーションバー -->
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container">
+                <!-- ロゴとサイト名 -->
                 <a class="navbar-brand" href="index.php">
-                <img src="assets/images/logo.jpg" alt="Prime Select" height="30" class="d-inline-block align-top mr-2">
+                    <img src="assets/images/Logo.jpg" alt="Prime Select" height="30" class="d-inline-block align-top mr-2">
+                    Prime Select
                 </a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
+                    <!-- メインナビゲーション -->
                     <ul class="navbar-nav mr-auto">
                         <li class="nav-item">
                             <a class="nav-link" href="index.php">ホーム</a>
@@ -59,10 +63,14 @@
                             <a class="nav-link" href="contact.php">お問い合わせ</a>
                         </li>
                     </ul>
+                    
+                    <!-- 検索フォーム -->
                     <form class="form-inline my-2 my-lg-0 mr-3" action="search.php" method="get">
                         <input class="form-control mr-sm-2" type="search" name="keyword" placeholder="商品検索" aria-label="Search">
                         <button class="btn btn-outline-light my-2 my-sm-0" type="submit">検索</button>
                     </form>
+                    
+                    <!-- ユーザーメニュー -->
                     <ul class="navbar-nav">
                         <li class="nav-item">
                             <a class="nav-link" href="cart.php">
@@ -89,6 +97,7 @@
                             </a>
                         </li>
                         <?php if(isset($_SESSION['user_id'])): ?>
+                        <!-- ログイン済みユーザーメニュー -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown">
                                 <i class="fas fa-user"></i> マイページ
@@ -102,6 +111,7 @@
                             </div>
                         </li>
                         <?php else: ?>
+                        <!-- 未ログインユーザーメニュー -->
                         <li class="nav-item">
                             <a class="nav-link" href="login.php">ログイン</a>
                         </li>

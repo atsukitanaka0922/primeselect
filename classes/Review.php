@@ -1,8 +1,18 @@
 <?php
+/**
+ * レビュークラス
+ * 
+ * 商品レビューの管理と操作を行うクラス
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
 class Review {
+    // データベース接続とテーブル名
     private $conn;
     private $table_name = "reviews";
     
+    // プロパティ
     public $id;
     public $product_id;
     public $user_id;
@@ -10,11 +20,20 @@ class Review {
     public $comment;
     public $created;
     
+    /**
+     * コンストラクタ
+     * 
+     * @param PDO $db データベース接続オブジェクト
+     */
     public function __construct($db) {
         $this->conn = $db;
     }
     
-    // レビュー追加
+    /**
+     * レビュー追加
+     * 
+     * @return boolean 追加成功ならtrue
+     */
     public function create() {
         // レビューが既に存在するか確認
         $check_query = "SELECT id FROM " . $this->table_name . " WHERE user_id = ? AND product_id = ?";
@@ -73,7 +92,12 @@ class Review {
         return false;
     }
     
-    // 商品のレビュー取得
+    /**
+     * 商品のレビュー取得
+     * 
+     * @param int $product_id 商品ID
+     * @return PDOStatement 結果セット
+     */
     public function getProductReviews($product_id) {
         $query = "SELECT r.*, u.username 
                 FROM " . $this->table_name . " r 
@@ -88,7 +112,12 @@ class Review {
         return $stmt;
     }
     
-    // 商品の平均評価取得
+    /**
+     * 商品の平均評価取得
+     * 
+     * @param int $product_id 商品ID
+     * @return float 平均評価
+     */
     public function getAverageRating($product_id) {
         $query = "SELECT AVG(rating) as average_rating FROM " . $this->table_name . " WHERE product_id = ?";
         
@@ -101,7 +130,12 @@ class Review {
         return round($row['average_rating'] ?? 0, 1);
     }
     
-    // レビュー数取得
+    /**
+     * レビュー数取得
+     * 
+     * @param int $product_id 商品ID
+     * @return int レビュー数
+     */
     public function getReviewCount($product_id) {
         $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " WHERE product_id = ?";
         

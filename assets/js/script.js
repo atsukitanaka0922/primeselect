@@ -1,20 +1,36 @@
+/**
+ * Prime Select ECサイト用JavaScript
+ * 
+ * サイト全体で使用する汎用的なJavaScript機能を提供します
+ */
+
 // ドロップダウンメニューの動作
 $(document).ready(function() {
     $('.dropdown-toggle').dropdown();
 });
 
-// 商品数量の増減
+/**
+ * 商品数量の増減
+ * 
+ * @param {string} inputId 対象の入力要素ID
+ * @param {number} increment 増減値
+ */
 function updateQuantity(inputId, increment) {
     var input = document.getElementById(inputId);
     var currentValue = parseInt(input.value);
     var newValue = currentValue + increment;
     
+    // 1〜99の範囲内で数量を制限
     if (newValue >= 1 && newValue <= 99) {
         input.value = newValue;
     }
 }
 
-// 画像プレビュー（管理画面用）
+/**
+ * 画像プレビュー（管理画面用）
+ * 
+ * @param {Element} input ファイル入力要素
+ */
 function previewImage(input) {
     if (input.files && input.files[0]) {
         var reader = new FileReader();
@@ -27,7 +43,11 @@ function previewImage(input) {
     }
 }
 
-// フォームバリデーション
+/**
+ * フォームバリデーション
+ * 
+ * @return {boolean} バリデーションが成功すればtrue
+ */
 function validateForm() {
     var isValid = true;
     
@@ -54,7 +74,12 @@ function validateForm() {
     return isValid;
 }
 
-// カート内の商品数量変更時の小計更新
+/**
+ * カート内の商品数量変更時の小計更新
+ * 
+ * @param {Element} inputElement 数量入力要素
+ * @param {number} price 商品単価
+ */
 function updateSubtotal(inputElement, price) {
     var quantity = parseInt(inputElement.value);
     var subtotal = quantity * price;
@@ -67,7 +92,9 @@ function updateSubtotal(inputElement, price) {
     updateTotal();
 }
 
-// カート内の合計金額更新
+/**
+ * カート内の合計金額更新
+ */
 function updateTotal() {
     var total = 0;
     var subtotalElements = document.querySelectorAll('.subtotal');
@@ -83,7 +110,9 @@ function updateTotal() {
     }
 }
 
-// 支払い方法選択時のフォーム切替
+/**
+ * 支払い方法選択時のフォーム切替
+ */
 function togglePaymentForm() {
     var paymentMethod = $('input[name="payment_method"]:checked').val();
     
@@ -92,6 +121,17 @@ function togglePaymentForm() {
     } else {
         $('#creditCardForm').hide();
     }
+}
+
+/**
+ * 商品詳細ページでのメイン画像切り替え
+ * 
+ * @param {string} imageFile 画像ファイル名
+ * @param {string} productName 商品名
+ */
+function changeMainImage(imageFile, productName) {
+    document.getElementById('mainImage').src = 'assets/images/' + imageFile;
+    document.getElementById('mainImage').alt = productName;
 }
 
 // ページ読み込み時の初期化

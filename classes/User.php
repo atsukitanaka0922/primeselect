@@ -1,19 +1,38 @@
 <?php
+/**
+ * ユーザークラス
+ * 
+ * ユーザー情報の管理と操作を行うクラス
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
 class User {
+    // データベース接続とテーブル名
     private $conn;
     private $table_name = "users";
     
+    // プロパティ
     public $id;
     public $username;
     public $email;
     public $password;
     public $created;
     
+    /**
+     * コンストラクタ
+     * 
+     * @param PDO $db データベース接続オブジェクト
+     */
     public function __construct($db) {
         $this->conn = $db;
     }
     
-    // ユーザー登録
+    /**
+     * ユーザー登録
+     * 
+     * @return boolean 登録成功ならtrue
+     */
     public function create() {
         $query = "INSERT INTO " . $this->table_name . " SET username=:username, email=:email, password=:password";
         $stmt = $this->conn->prepare($query);
@@ -35,7 +54,12 @@ class User {
         return false;
     }
     
-    // ログイン認証
+    /**
+     * ログイン認証
+     * 
+     * @return array|false 認証成功時はユーザー情報、失敗時はfalse
+     */
+    
     public function login() {
         $query = "SELECT id, username, password FROM " . $this->table_name . " WHERE email = ? LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
@@ -51,7 +75,11 @@ class User {
         return false;
     }
     
-    // ユーザープロフィール更新
+    /**
+     * ユーザープロフィール更新
+     * 
+     * @return boolean 更新成功ならtrue
+     */
     public function updateProfile() {
         $query = "UPDATE " . $this->table_name . " 
                 SET username = :username, 
@@ -76,7 +104,13 @@ class User {
         return false;
     }
     
-    // パスワード変更
+    /**
+     * パスワード変更
+     * 
+     * @param string $current_password 現在のパスワード
+     * @param string $new_password 新しいパスワード
+     * @return boolean 変更成功ならtrue
+     */
     public function updatePassword($current_password, $new_password) {
         // 現在のパスワードを確認
         $query = "SELECT password FROM " . $this->table_name . " WHERE id = ?";
@@ -109,7 +143,9 @@ class User {
         return false;
     }
     
-    // ユーザープロフィール取得
+    /**
+     * ユーザープロフィール取得
+     */
     public function getUser() {
         $query = "SELECT id, username, email, created FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
         
@@ -126,7 +162,11 @@ class User {
         }
     }
     
-    // ユーザー数取得
+    /**
+     * ユーザー数取得
+     * 
+     * @return int ユーザー数
+     */
     public function count() {
         $query = "SELECT COUNT(*) as total FROM " . $this->table_name;
         $stmt = $this->conn->prepare($query);
