@@ -19,7 +19,6 @@
                 <!-- ロゴとサイト名 -->
                 <a class="navbar-brand" href="index.php">
                     <img src="assets/images/Logo.jpg" alt="Prime Select" height="30" class="d-inline-block align-top mr-2">
-                    Prime Select
                 </a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>

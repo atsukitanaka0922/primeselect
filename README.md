@@ -1,7 +1,5 @@
 # Prime Select ECサイト
 
-(assets/images/logo2.jpg)
-
 ## 📝 概要
 
 Prime Select は、PHPで構築された実務レベルのECサイトです。ユーザー認証、商品カタログ、ショッピングカート、チェックアウトプロセス、管理パネルなど、本格的なECサイトに必要な機能を実装しています。
