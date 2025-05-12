@@ -64,6 +64,30 @@ if (!empty($_SERVER['QUERY_STRING'])) {
 include_once "templates/header.php";
 ?>
 
+<style>
+.card-img-wrapper {
+    position: relative;
+    overflow: hidden;
+}
+
+.stock-status {
+    font-size: 0.875rem;
+}
+
+.preorder-info {
+    font-size: 0.875rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+</style>
+
 <div class="container mt-5">
     <h2>商品一覧</h2>
     
@@ -146,16 +170,73 @@ include_once "templates/header.php";
                 if($num > 0) {
                     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                         extract($row);
+                        
+                        // 受注生産情報と在庫情報を取得
+                        $preorder_info = $product->getPreorderInfo($id);
+                        $stock_info = $product->checkStock($id);
                         ?>
                         <div class="col-md-4 mb-4">
                             <div class="card h-100">
-                                <img class="card-img-top" src="assets/images/<?php echo $image; ?>" alt="<?php echo $name; ?>">
+                                <div class="card-img-wrapper position-relative">
+                                    <img class="card-img-top" src="assets/images/<?php echo $image; ?>" alt="<?php echo $name; ?>">
+                                    
+                                    <?php
+                                    // 受注生産商品の場合はバッジを表示
+                                    if($preorder_info['is_preorder']): ?>
+                                    <div class="position-absolute" style="top: 10px; right: 10px;">
+                                        <span class="badge badge-warning">受注生産</span>
+                                    </div>
+                                    <?php else:
+                                        // 通常商品の場合は在庫状況を確認
+                                        if(!$stock_info['is_available']): ?>
+                                    <div class="position-absolute" style="top: 10px; right: 10px;">
+                                        <span class="badge badge-danger">在庫切れ</span>
+                                    </div>
+                                    <?php elseif($stock_info['status'] == 'low_stock'): ?>
+                                    <div class="position-absolute" style="top: 10px; right: 10px;">
+                                        <span class="badge badge-warning">残り少ない</span>
+                                    </div>
+                                    <?php endif;
+                                    endif; ?>
+                                </div>
+                                
                                 <div class="card-body">
                                     <h5 class="card-title"><?php echo $name; ?></h5>
                                     <p class="card-text"><?php echo substr($description, 0, 100) . '...'; ?></p>
                                     <h6 class="card-price">¥<?php echo number_format($price); ?></h6>
-                                    <a href="product.php?id=<?php echo $id; ?>" class="btn btn-primary">詳細を見る</a>
-                                    <a href="cart.php?action=add&id=<?php echo $id; ?>" class="btn btn-success">カートに追加</a>
+                                    
+                                    <!-- 在庫状況表示 -->
+                                    <?php if(!$preorder_info['is_preorder']): ?>
+                                    <div class="stock-status mb-2">
+                                        <?php switch($stock_info['status']):
+                                            case 'in_stock': ?>
+                                                <small class="text-success"><i class="fas fa-check-circle"></i> 在庫あり</small>
+                                            <?php break;
+                                            case 'low_stock': ?>
+                                                <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> 残り少ない</small>
+                                            <?php break;
+                                            case 'out_of_stock': ?>
+                                                <small class="text-danger"><i class="fas fa-times-circle"></i> 在庫切れ</small>
+                                            <?php break;
+                                        endswitch; ?>
+                                    </div>
+                                    <?php else: ?>
+                                    <div class="preorder-info mb-2">
+                                        <small class="text-info"><i class="fas fa-calendar-alt"></i> 受注生産 (<?php echo $preorder_info['preorder_period']; ?>)</small>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <a href="product.php?id=<?php echo $id; ?>" class="btn btn-primary">詳細を見る</a>
+                                        
+                                        <?php if($preorder_info['is_preorder']): ?>
+                                            <a href="product.php?id=<?php echo $id; ?>" class="btn btn-warning">予約注文</a>
+                                        <?php elseif($stock_info['is_available']): ?>
+                                            <a href="cart.php?action=add&id=<?php echo $id; ?>" class="btn btn-success">カートに追加</a>
+                                        <?php else: ?>
+                                            <button class="btn btn-secondary" disabled>在庫切れ</button>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
                         </div>

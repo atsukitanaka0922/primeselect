@@ -1,8 +1,8 @@
 <?php
 /**
- * 商品詳細ページ
+ * 商品詳細ページ（在庫・受注生産対応版）
  * 
- * 単一商品の詳細情報、バリエーション、レビューを表示します。
+ * 単一商品の詳細情報、バリエーション、在庫状況、受注生産情報を表示します。
  * 
  * @author Prime Select Team
  * @version 1.0
@@ -34,6 +34,12 @@ $product_images = $product->getProductImages($id);
 
 // 商品バリエーション取得（グループ化）
 $variations = $product->getGroupedVariations($id);
+
+// 受注生産情報取得
+$preorder_info = $product->getPreorderInfo($id);
+
+// 在庫情報取得
+$stock_info = $product->checkStock($id);
 
 // レビューオブジェクト
 $review = new Review($db);
@@ -69,6 +75,24 @@ $review_count = $review->getReviewCount($id);
 include_once "templates/header.php";
 ?>
 
+<style>
+.product-badge-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.badge-lg {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.stock-status .badge {
+    font-size: 0.9rem;
+}
+</style>
+
 <div class="container mt-5">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -89,8 +113,15 @@ include_once "templates/header.php";
     <div class="row">
         <div class="col-md-6">
             <!-- メイン画像表示 -->
-            <div class="product-main-image mb-3">
+            <div class="product-main-image mb-3 position-relative">
                 <img id="mainImage" src="assets/images/<?php echo $product->image; ?>" class="img-fluid" alt="<?php echo $product->name; ?>">
+                
+                <!-- 受注生産バッジ -->
+                <?php if($preorder_info['is_preorder']): ?>
+                <div class="product-badge-overlay">
+                    <span class="badge badge-warning badge-lg">受注生産</span>
+                </div>
+                <?php endif; ?>
             </div>
             
             <!-- サムネイル画像表示 -->
@@ -110,6 +141,27 @@ include_once "templates/header.php";
         </div>
         <div class="col-md-6">
             <h2><?php echo $product->name; ?></h2>
+            
+            <!-- 在庫状況表示 -->
+            <div class="stock-status mb-3">
+                <?php
+                if(!$preorder_info['is_preorder']) {
+                    switch($stock_info['status']) {
+                        case 'in_stock':
+                            echo '<span class="badge badge-success">在庫あり</span>';
+                            break;
+                        case 'low_stock':
+                            echo '<span class="badge badge-warning">残り少ない</span>';
+                            break;
+                        case 'out_of_stock':
+                            echo '<span class="badge badge-danger">在庫切れ</span>';
+                            break;
+                    }
+                } else {
+                    echo '<span class="badge badge-info">受注生産商品</span>';
+                }
+                ?>
+            </div>
             
             <!-- 評価表示 -->
             <div class="mb-3">
@@ -132,9 +184,18 @@ include_once "templates/header.php";
             
             <p><?php echo $product->description; ?></p>
             
+            <!-- 受注生産の説明 -->
+            <?php if($preorder_info['is_preorder']): ?>
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle"></i> 受注生産商品について</h6>
+                <p class="mb-0">この商品は受注生産となります。ご注文いただいてから<?php echo $preorder_info['preorder_period']; ?>でお届け予定です。</p>
+            </div>
+            <?php endif; ?>
+            
             <form action="cart.php" method="get" class="mb-4">
                 <input type="hidden" name="action" value="add">
                 <input type="hidden" name="id" value="<?php echo $product->id; ?>">
+                <input type="hidden" name="is_preorder" value="<?php echo $preorder_info['is_preorder'] ? 1 : 0; ?>">
                 
                 <!-- バリエーション選択肢 -->
                 <?php foreach($variations as $variation_name => $variation_options): ?>
@@ -143,12 +204,17 @@ include_once "templates/header.php";
                     <select class="form-control variation-select" id="variation_<?php echo $variation_name; ?>" name="variation_id" data-base-price="<?php echo $product->price; ?>" required>
                         <option value="">選択してください</option>
                         <?php foreach($variation_options as $option): ?>
-                        <option value="<?php echo $option['id']; ?>" data-price-adjustment="<?php echo $option['price_adjustment']; ?>">
+                        <option value="<?php echo $option['id']; ?>" 
+                                data-price-adjustment="<?php echo $option['price_adjustment']; ?>"
+                                data-stock="<?php echo $option['stock']; ?>">
                             <?php echo $option['variation_value']; ?> 
                             <?php if($option['price_adjustment'] > 0): ?>
                                 (+¥<?php echo number_format($option['price_adjustment']); ?>)
                             <?php elseif($option['price_adjustment'] < 0): ?>
                                 (-¥<?php echo number_format(abs($option['price_adjustment'])); ?>)
+                            <?php endif; ?>
+                            <?php if(!$preorder_info['is_preorder']): ?>
+                                - 在庫: <?php echo $option['stock']; ?>個
                             <?php endif; ?>
                         </option>
                         <?php endforeach; ?>
@@ -165,8 +231,22 @@ include_once "templates/header.php";
                     </select>
                 </div>
                 
+                <!-- 在庫状況に基づいたボタン表示 -->
                 <div class="btn-group">
-                    <button type="submit" class="btn btn-success btn-lg">カートに追加</button>
+                    <?php if($preorder_info['is_preorder']): ?>
+                        <!-- 受注生産品の場合はカートに追加ボタンを表示 -->
+                        <button type="submit" class="btn btn-warning btn-lg" <?php echo !isset($_SESSION['user_id']) ? 'disabled' : ''; ?>>
+                            <i class="fas fa-shopping-cart"></i> カートに追加（予約商品）
+                        </button>
+                    <?php elseif($stock_info['is_available']): ?>
+                        <button type="submit" class="btn btn-success btn-lg" id="add-to-cart-btn">
+                            <i class="fas fa-shopping-cart"></i> カートに追加
+                        </button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-secondary btn-lg" disabled>
+                            <i class="fas fa-times"></i> 在庫切れ
+                        </button>
+                    <?php endif; ?>
                     
                     <?php if(isset($_SESSION['user_id'])): ?>
                         <?php if($in_wishlist): ?>
@@ -178,6 +258,10 @@ include_once "templates/header.php";
                                 <i class="far fa-heart"></i> お気に入りに追加
                             </a>
                         <?php endif; ?>
+                    <?php else: ?>
+                        <div class="ml-2">
+                            <small class="text-muted">ログインが必要です</small>
+                        </div>
                     <?php endif; ?>
                 </div>
             </form>
@@ -187,7 +271,14 @@ include_once "templates/header.php";
                 <ul class="list-unstyled">
                     <li><strong>カテゴリ:</strong> <?php echo $product->category_name; ?></li>
                     <li><strong>商品コード:</strong> PROD-<?php echo $product->id; ?></li>
-                    <li id="stock-status"><strong>在庫状況:</strong> <span class="text-success">在庫あり</span></li>
+                    <li id="stock-status"><strong>在庫状況:</strong> 
+                        <span class="<?php echo $stock_info['is_available'] || $preorder_info['is_preorder'] ? 'text-success' : 'text-danger'; ?>">
+                            <?php echo $stock_info['is_available'] || $preorder_info['is_preorder'] ? '購入可能' : '在庫切れ'; ?>
+                        </span>
+                    </li>
+                    <?php if($preorder_info['is_preorder']): ?>
+                    <li><strong>納期:</strong> <?php echo $preorder_info['preorder_period']; ?></li>
+                    <?php endif; ?>
                 </ul>
             </div>
         </div>
@@ -320,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const variationSelects = document.querySelectorAll('.variation-select');
     const priceDisplay = document.getElementById('product-price-display');
     const stockStatus = document.getElementById('stock-status');
+    const addToCartBtn = document.getElementById('add-to-cart-btn');
     
     // 基本価格を取得
     const basePrice = parseFloat(variationSelects[0]?.dataset.basePrice || 0);
@@ -331,12 +423,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePrice() {
         let totalAdjustment = 0;
         let selectedOption = null;
+        let stockLevel = 0;
         
         // 全てのバリエーション選択肢を確認
         variationSelects.forEach(select => {
             if (select.value) {
                 selectedOption = select.options[select.selectedIndex];
                 totalAdjustment += parseFloat(selectedOption.dataset.priceAdjustment || 0);
+                stockLevel = parseInt(selectedOption.dataset.stock || 0);
             }
         });
         
@@ -345,9 +439,22 @@ document.addEventListener('DOMContentLoaded', function() {
         priceDisplay.innerHTML = `<p class="h4 text-danger mb-4">¥${adjustedPrice.toLocaleString()}</p>`;
         
         // 選択されたオプションがある場合、在庫状態も更新
-        if (selectedOption) {
-            // ここでAJAXなどを使って実際の在庫状況を確認するロジックを追加することも可能
-            stockStatus.innerHTML = `<strong>在庫状況:</strong> <span class="text-success">在庫あり</span>`;
+        if (selectedOption && !<?php echo $preorder_info['is_preorder'] ? 'true' : 'false'; ?>) {
+            if (stockLevel > 0) {
+                stockStatus.innerHTML = `<strong>在庫状況:</strong> <span class="text-success">在庫あり (${stockLevel}個)</span>`;
+                if (addToCartBtn) {
+                    addToCartBtn.disabled = false;
+                    addToCartBtn.className = 'btn btn-success btn-lg';
+                    addToCartBtn.innerHTML = '<i class="fas fa-shopping-cart"></i> カートに追加';
+                }
+            } else {
+                stockStatus.innerHTML = `<strong>在庫状況:</strong> <span class="text-danger">在庫切れ</span>`;
+                if (addToCartBtn) {
+                    addToCartBtn.disabled = true;
+                    addToCartBtn.className = 'btn btn-secondary btn-lg';
+                    addToCartBtn.innerHTML = '<i class="fas fa-times"></i> 在庫切れ';
+                }
+            }
         }
     }
 });

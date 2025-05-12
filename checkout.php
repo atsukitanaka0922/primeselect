@@ -1,6 +1,6 @@
 <?php
 /**
- * チェックアウトページ
+ * チェックアウトページ（トランザクション修正版）
  * 
  * 購入手続きを行い、配送情報と支払い方法を入力します。
  * 
@@ -14,6 +14,7 @@ session_start();
 // 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/Cart.php";
+include_once "classes/Product.php";  // Productクラスを追加
 include_once "classes/Order.php";
 include_once "classes/Payment.php";
 
@@ -35,60 +36,66 @@ $user_id = $_SESSION['user_id'];
 
 // 注文処理
 if(isset($_POST['place_order'])) {
-    // 注文情報を取得
-    $order->user_id = $user_id;
-    $order->shipping_address = $_POST['address'];
-    $order->payment_method = $_POST['payment_method'];
-    
-    // 注文作成
-    if($order_id = $order->create()) {
-        // カートアイテムを注文アイテムとして登録
-        $items = $cart->getItems($user_id);
-        while($item = $items->fetch(PDO::FETCH_ASSOC)) {
-            // バリエーションがある場合、価格を調整
-            $item_price = $item['price'];
-            if(isset($item['price_adjustment'])) {
-                $item_price += $item['price_adjustment'];
+    try {
+        // トランザクションが開始されていたら一度ロールバック
+        if($db->inTransaction()) {
+            $db->rollback();
+        }
+        
+        // 注文情報を取得
+        $order->user_id = $user_id;
+        $order->shipping_address = $_POST['address'];
+        $order->payment_method = $_POST['payment_method'];
+        
+        // 注文作成
+        $order_id = $order->create();
+        
+        if($order_id) {
+            // 支払い処理
+            $payment_success = false;
+            
+            switch($order->payment_method) {
+                case 'credit_card':
+                    // クレジットカード決済（デモ用）
+                    $card_number = $_POST['card_number'];
+                    $card_expiry = $_POST['card_expiry'];
+                    $card_cvv = $_POST['card_cvv'];
+                    $payment_success = $payment->processCreditCard($order_id, $card_number, $card_expiry, $card_cvv);
+                    break;
+                    
+                case 'bank_transfer':
+                    // 銀行振込
+                    $payment_success = $payment->processBankTransfer($order_id);
+                    break;
+                    
+                case 'cod':
+                    // 代金引換
+                    $payment_success = $payment->processCOD($order_id);
+                    break;
             }
             
-            $order->addOrderItem($order_id, $item['product_id'], $item['quantity'], $item_price, $item['variation_id']);
-        }
-        
-        // 支払い処理
-        $payment_success = false;
-        
-        switch($order->payment_method) {
-            case 'credit_card':
-                // クレジットカード決済（デモ用）
-                $card_number = $_POST['card_number'];
-                $card_expiry = $_POST['card_expiry'];
-                $card_cvv = $_POST['card_cvv'];
-                $payment_success = $payment->processCreditCard($order_id, $card_number, $card_expiry, $card_cvv);
-                break;
+            if($payment_success) {
+                // カートをクリア
+                $cart->clear($user_id);
                 
-            case 'bank_transfer':
-                // 銀行振込
-                $payment_success = $payment->processBankTransfer($order_id);
-                break;
-                
-            case 'cod':
-                // 代金引換
-                $payment_success = $payment->processCOD($order_id);
-                break;
-        }
-        
-        if($payment_success) {
-            // カートをクリア
-            $cart->clear($user_id);
-            
-            // 注文完了ページにリダイレクト
-            header('Location: order_complete.php?id=' . $order_id);
-            exit();
+                // 注文完了ページにリダイレクト
+                header('Location: order_complete.php?id=' . $order_id);
+                exit();
+            } else {
+                // 支払い失敗時は注文をキャンセルして在庫を復元
+                $order->restoreStockOnCancel($order_id);
+                $error_message = "決済処理に失敗しました。";
+            }
         } else {
-            $error_message = "決済処理に失敗しました。";
+            $error_message = "注文の作成に失敗しました。";
         }
-    } else {
-        $error_message = "注文の作成に失敗しました。";
+    } catch (Exception $e) {
+        $error_message = "エラーが発生しました: " . $e->getMessage();
+        
+        // トランザクションが残っている場合はロールバック
+        if ($db->inTransaction()) {
+            $db->rollback();
+        }
     }
 }
 
@@ -168,7 +175,7 @@ include_once "templates/header.php";
                             </div>
                         </div>
                         
-                        <button type="submit" name="place_order" class="btn btn-primary">注文を確定する</button>
+                        <button type="submit" name="place_order" class="btn btn-primary btn-lg">注文を確定する</button>
                     </form>
                 </div>
             </div>

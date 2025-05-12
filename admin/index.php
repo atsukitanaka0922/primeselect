@@ -1,4 +1,3 @@
-// admin/index.php - 管理パネルのダッシュボード
 <?php
 session_start();
 include_once "../config/database.php";

@@ -5,7 +5,12 @@ include_once "classes/User.php";
 
 // 既にログイン済みの場合はリダイレクト
 if(isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    // 管理者の場合は管理パネルへ、一般ユーザーの場合はトップページへ
+    if(isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1) {
+        header('Location: admin/index.php');
+    } else {
+        header('Location: index.php');
+    }
     exit();
 }
 
@@ -22,17 +27,23 @@ if(isset($_POST['login'])) {
     $result = $user->login();
     
     if($result) {
-        // セッション情報を設定
+        // セッション情報を設定（is_adminフラグも含める）
         $_SESSION['user_id'] = $result['id'];
         $_SESSION['username'] = $result['username'];
+        $_SESSION['is_admin'] = $result['is_admin'];  // 管理者フラグを追加
         
-        // リダイレクト先がある場合はそちらへ
-        if(isset($_SESSION['redirect_to'])) {
-            $redirect = $_SESSION['redirect_to'];
-            unset($_SESSION['redirect_to']);
-            header("Location: $redirect");
+        // 管理者の場合は管理パネルにリダイレクト
+        if($result['is_admin'] == 1) {
+            header('Location: admin/index.php');
         } else {
-            header('Location: index.php');
+            // リダイレクト先がある場合はそちらへ
+            if(isset($_SESSION['redirect_to'])) {
+                $redirect = $_SESSION['redirect_to'];
+                unset($_SESSION['redirect_to']);
+                header("Location: $redirect");
+            } else {
+                header('Location: index.php');
+            }
         }
         exit();
     } else {
@@ -55,6 +66,18 @@ include_once "templates/header.php";
                     <div class="alert alert-warning">
                         <strong>注意:</strong> これは模擬サイトです。実際の個人情報は入力しないでください。
                     </div>
+                    
+                    <!-- デモ用のログイン情報を表示 -->
+                    <div class="alert alert-info">
+                        <h6>デモ用アカウント:</h6>
+                        <strong>管理者:</strong><br>
+                        メール: admin@example.com<br>
+                        パスワード: admin123<br><br>
+                        <strong>一般ユーザー:</strong><br>
+                        メール: user@example.com<br>
+                        パスワード: user123
+                    </div>
+                    
                     <form method="post">
                         <div class="form-group">
                             <label for="email">メールアドレス</label>

@@ -3,6 +3,7 @@
  * ユーザークラス
  * 
  * ユーザー情報の管理と操作を行うクラス
+ * 管理者フラグの対応を含む
  * 
  * @author Prime Select Team
  * @version 1.0
@@ -17,6 +18,7 @@ class User {
     public $username;
     public $email;
     public $password;
+    public $is_admin;
     public $created;
     
     /**
@@ -55,13 +57,13 @@ class User {
     }
     
     /**
-     * ログイン認証
+     * ログイン認証（管理者フラグ対応）
      * 
      * @return array|false 認証成功時はユーザー情報、失敗時はfalse
      */
-    
     public function login() {
-        $query = "SELECT id, username, password FROM " . $this->table_name . " WHERE email = ? LIMIT 0,1";
+        // is_adminフィールドも取得するように修正
+        $query = "SELECT id, username, password, is_admin FROM " . $this->table_name . " WHERE email = ? LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $this->email);
         $stmt->execute();
@@ -69,7 +71,12 @@ class User {
         if($stmt->rowCount() > 0) {
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if(password_verify($this->password, $row['password'])) {
-                return $row;
+                // is_adminフィールドも返すように修正
+                return [
+                    'id' => $row['id'],
+                    'username' => $row['username'],
+                    'is_admin' => $row['is_admin']
+                ];
             }
         }
         return false;
@@ -147,7 +154,7 @@ class User {
      * ユーザープロフィール取得
      */
     public function getUser() {
-        $query = "SELECT id, username, email, created FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
+        $query = "SELECT id, username, email, is_admin, created FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $this->id);
@@ -158,6 +165,7 @@ class User {
         if($row) {
             $this->username = $row['username'];
             $this->email = $row['email'];
+            $this->is_admin = $row['is_admin'];
             $this->created = $row['created'];
         }
     }
@@ -174,6 +182,134 @@ class User {
         
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row['total'];
+    }
+    
+    /**
+     * 管理者ユーザー数取得
+     * 
+     * @return int 管理者ユーザー数
+     */
+    public function countAdmins() {
+        $query = "SELECT COUNT(*) as total FROM " . $this->table_name . " WHERE is_admin = 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row['total'];
+    }
+    
+    /**
+     * 全ユーザー取得（管理者用）
+     * 
+     * @return PDOStatement 結果セット
+     */
+    public function readAll() {
+        $query = "SELECT id, username, email, is_admin, created FROM " . $this->table_name . " ORDER BY created DESC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        return $stmt;
+    }
+    
+    /**
+     * ユーザーの管理者権限変更（管理者用）
+     * 
+     * @param int $user_id ユーザーID
+     * @param int $is_admin 管理者フラグ（0または1）
+     * @return boolean 更新成功ならtrue
+     */
+    public function updateAdminStatus($user_id, $is_admin) {
+        $query = "UPDATE " . $this->table_name . " SET is_admin = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $is_admin);
+        $stmt->bindParam(2, $user_id);
+        
+        return $stmt->execute();
+    }
+    
+    /**
+     * ユーザー削除（管理者用）
+     * 
+     * @param int $user_id ユーザーID
+     * @return boolean 削除成功ならtrue
+     */
+    public function delete($user_id) {
+        // 削除しようとするのが管理者かチェック
+        $query = "SELECT is_admin FROM " . $this->table_name . " WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $user_id);
+        $stmt->execute();
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // 管理者は削除できない
+        if($row && $row['is_admin'] == 1) {
+            return false;
+        }
+        
+        // ユーザー削除
+        $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $user_id);
+        
+        return $stmt->execute();
+    }
+    
+    /**
+     * 最近のユーザー取得（管理者用）
+     * 
+     * @param int $limit 取得件数
+     * @return PDOStatement 結果セット
+     */
+    public function getRecentUsers($limit = 10) {
+        $query = "SELECT id, username, email, is_admin, created FROM " . $this->table_name . " 
+                ORDER BY created DESC LIMIT ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt;
+    }
+    
+    /**
+     * 管理者権限チェック
+     * 
+     * @param int $user_id ユーザーID
+     * @return boolean 管理者ならtrue
+     */
+    public function isAdmin($user_id) {
+        $query = "SELECT is_admin FROM " . $this->table_name . " WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $user_id);
+        $stmt->execute();
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return ($row && $row['is_admin'] == 1);
+    }
+    
+    /**
+     * メールアドレスの重複チェック
+     * 
+     * @param string $email メールアドレス
+     * @param int $user_id 除外するユーザーID（編集時）
+     * @return boolean 重複している場合はtrue
+     */
+    public function emailExists($email, $user_id = null) {
+        if($user_id) {
+            $query = "SELECT id FROM " . $this->table_name . " WHERE email = ? AND id != ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $email);
+            $stmt->bindParam(2, $user_id);
+        } else {
+            $query = "SELECT id FROM " . $this->table_name . " WHERE email = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $email);
+        }
+        
+        $stmt->execute();
+        
+        return ($stmt->rowCount() > 0);
     }
 }
 ?>
