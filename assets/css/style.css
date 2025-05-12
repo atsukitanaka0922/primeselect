@@ -129,6 +129,61 @@ footer {
     border-color: #007bff;
 }
 
+/* バナーとプロモーションエリア */
+.promo-banner {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    padding: 2rem 0;
+    background-image: linear-gradient(120deg, #e0f7fa 0%, #f3e5f5 100%);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.promo-banner h2 {
+    color: #333;
+    font-weight: 700;
+}
+
+.promo-banner .lead {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+}
+
+.featured-product-card {
+    transition: transform 0.3s, box-shadow 0.3s;
+    height: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.featured-product-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.featured-product-card img {
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+/* 商品バリエーション関連のスタイル */
+.variation-select {
+    margin-bottom: 15px;
+    max-width: 300px;
+}
+
+.variation-options .btn {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.variation-options .btn-check:checked + .btn,
+.variation-options .btn-check:active + .btn {
+    background-color: #007bff;
+    color: white;
+}
+
 /* モバイル対応 */
 @media (max-width: 767.98px) {
     .card-img-top {
@@ -141,5 +196,19 @@ footer {
     
     .product-thumbnails .thumbnail-item {
         width: 60px;
+    }
+    
+    .promo-banner {
+        text-align: center;
+        padding: 1.5rem 0;
+    }
+    
+    .promo-banner .col-md-6.text-right {
+        margin-top: 1rem;
+        text-align: center !important;
+    }
+    
+    .featured-product-card {
+        margin-bottom: 1rem;
     }
 }

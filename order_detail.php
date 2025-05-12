@@ -1,5 +1,17 @@
 <?php
+/**
+ * 注文詳細ページ
+ * 
+ * 注文の詳細情報を表示します。
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/Order.php";
 
@@ -72,6 +84,9 @@ include_once "templates/header.php";
                                     case 'delivered':
                                         echo '<span class="badge badge-success">配達済み</span>';
                                         break;
+                                    case 'cancelled':
+                                        echo '<span class="badge badge-danger">キャンセル済み</span>';
+                                        break;
                                 }
                                 ?>
                             </td>
@@ -125,8 +140,15 @@ include_once "templates/header.php";
                                     ?>
                                     <tr>
                                         <td>
-                                            <img src="assets/images/<?php echo $image; ?>" width="50" alt="<?php echo $name; ?>">
-                                            <?php echo $name; ?>
+                                            <div class="d-flex align-items-center">
+                                                <img src="assets/images/<?php echo $image; ?>" width="50" alt="<?php echo $name; ?>">
+                                                <div class="ml-2">
+                                                    <span><?php echo $name; ?></span>
+                                                    <?php if(isset($variation_name) && isset($variation_value)): ?>
+                                                    <div><small class="text-muted"><?php echo $variation_name; ?>: <?php echo $variation_value; ?></small></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td>¥<?php echo number_format($price); ?></td>
                                         <td><?php echo $quantity; ?></td>
@@ -157,7 +179,7 @@ include_once "templates/header.php";
                     <?php if($order->status == 'pending' || $order->status == 'processing'): ?>
                     <a href="cancel_order.php?id=<?php echo $order->id; ?>" class="btn btn-danger btn-block" onclick="return confirm('本当にこの注文をキャンセルしますか？');">注文をキャンセル</a>
                     <?php endif; ?>
-
+                    
                     <a href="generate_pdf.php?id=<?php echo $order->id; ?>" class="btn btn-info btn-block">注文をPDFでダウンロード</a>
                 </div>
             </div>

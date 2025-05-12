@@ -1,5 +1,17 @@
 <?php
+/**
+ * 商品詳細ページ
+ * 
+ * 単一商品の詳細情報、バリエーション、レビューを表示します。
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/Product.php";
 include_once "classes/Review.php";
@@ -19,6 +31,9 @@ $product->readOne();
 
 // 商品画像取得
 $product_images = $product->getProductImages($id);
+
+// 商品バリエーション取得（グループ化）
+$variations = $product->getGroupedVariations($id);
 
 // レビューオブジェクト
 $review = new Review($db);
@@ -110,11 +125,37 @@ include_once "templates/header.php";
                 <span class="ml-2"><?php echo $average_rating; ?> (<?php echo $review_count; ?>件のレビュー)</span>
             </div>
             
-            <p class="h4 text-danger mb-4">¥<?php echo number_format($product->price); ?></p>
+            <!-- 価格表示（バリエーションがある場合は変動） -->
+            <div id="product-price-display">
+                <p class="h4 text-danger mb-4">¥<?php echo number_format($product->price); ?></p>
+            </div>
             
             <p><?php echo $product->description; ?></p>
             
-            <form action="cart.php?action=add&id=<?php echo $product->id; ?>" method="post" class="mb-4">
+            <form action="cart.php" method="get" class="mb-4">
+                <input type="hidden" name="action" value="add">
+                <input type="hidden" name="id" value="<?php echo $product->id; ?>">
+                
+                <!-- バリエーション選択肢 -->
+                <?php foreach($variations as $variation_name => $variation_options): ?>
+                <div class="form-group">
+                    <label for="variation_<?php echo $variation_name; ?>"><?php echo $variation_name; ?></label>
+                    <select class="form-control variation-select" id="variation_<?php echo $variation_name; ?>" name="variation_id" data-base-price="<?php echo $product->price; ?>" required>
+                        <option value="">選択してください</option>
+                        <?php foreach($variation_options as $option): ?>
+                        <option value="<?php echo $option['id']; ?>" data-price-adjustment="<?php echo $option['price_adjustment']; ?>">
+                            <?php echo $option['variation_value']; ?> 
+                            <?php if($option['price_adjustment'] > 0): ?>
+                                (+¥<?php echo number_format($option['price_adjustment']); ?>)
+                            <?php elseif($option['price_adjustment'] < 0): ?>
+                                (-¥<?php echo number_format(abs($option['price_adjustment'])); ?>)
+                            <?php endif; ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endforeach; ?>
+                
                 <div class="form-group">
                     <label for="quantity">数量</label>
                     <select class="form-control" id="quantity" name="quantity" style="width: 100px;">
@@ -123,6 +164,7 @@ include_once "templates/header.php";
                         <?php endfor; ?>
                     </select>
                 </div>
+                
                 <div class="btn-group">
                     <button type="submit" class="btn btn-success btn-lg">カートに追加</button>
                     
@@ -145,7 +187,7 @@ include_once "templates/header.php";
                 <ul class="list-unstyled">
                     <li><strong>カテゴリ:</strong> <?php echo $product->category_name; ?></li>
                     <li><strong>商品コード:</strong> PROD-<?php echo $product->id; ?></li>
-                    <li><strong>在庫状況:</strong> <span class="text-success">在庫あり</span></li>
+                    <li id="stock-status"><strong>在庫状況:</strong> <span class="text-success">在庫あり</span></li>
                 </ul>
             </div>
         </div>
@@ -235,7 +277,7 @@ include_once "templates/header.php";
             
             <div class="row">
                 <?php
-                // カテゴリが同じ商品を表示（プレースホルダー）
+                // カテゴリが同じ商品を表示
                 $related_products = $product->getByCategory($product->category_id);
                 $count = 0;
                 
@@ -247,13 +289,10 @@ include_once "templates/header.php";
                     if($count >= 4) break;
                     
                     extract($row);
-                    
-                    // メイン画像を取得
-                    $main_image = $product->getMainImage($id) ?? $image;
                     ?>
                     <div class="col-md-3 mb-4">
                         <div class="card h-100">
-                            <img class="card-img-top" src="assets/images/<?php echo $main_image; ?>" alt="<?php echo $name; ?>">
+                            <img class="card-img-top" src="assets/images/<?php echo $image; ?>" alt="<?php echo $name; ?>">
                             <div class="card-body">
                                 <h5 class="card-title"><?php echo $name; ?></h5>
                                 <h6 class="card-price">¥<?php echo number_format($price); ?></h6>
@@ -274,8 +313,46 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- JavaScript for image switching -->
+<!-- バリエーション選択のJavaScript -->
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // バリエーション選択時の価格更新
+    const variationSelects = document.querySelectorAll('.variation-select');
+    const priceDisplay = document.getElementById('product-price-display');
+    const stockStatus = document.getElementById('stock-status');
+    
+    // 基本価格を取得
+    const basePrice = parseFloat(variationSelects[0]?.dataset.basePrice || 0);
+    
+    variationSelects.forEach(select => {
+        select.addEventListener('change', updatePrice);
+    });
+    
+    function updatePrice() {
+        let totalAdjustment = 0;
+        let selectedOption = null;
+        
+        // 全てのバリエーション選択肢を確認
+        variationSelects.forEach(select => {
+            if (select.value) {
+                selectedOption = select.options[select.selectedIndex];
+                totalAdjustment += parseFloat(selectedOption.dataset.priceAdjustment || 0);
+            }
+        });
+        
+        // 価格を更新
+        const adjustedPrice = basePrice + totalAdjustment;
+        priceDisplay.innerHTML = `<p class="h4 text-danger mb-4">¥${adjustedPrice.toLocaleString()}</p>`;
+        
+        // 選択されたオプションがある場合、在庫状態も更新
+        if (selectedOption) {
+            // ここでAJAXなどを使って実際の在庫状況を確認するロジックを追加することも可能
+            stockStatus.innerHTML = `<strong>在庫状況:</strong> <span class="text-success">在庫あり</span>`;
+        }
+    }
+});
+
+// 画像切り替えの関数
 function changeMainImage(imageFile, productName) {
     document.getElementById('mainImage').src = 'assets/images/' + imageFile;
     document.getElementById('mainImage').alt = productName;

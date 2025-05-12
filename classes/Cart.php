@@ -27,14 +27,29 @@ class Cart {
      * @param string $user_id ユーザーID
      * @param int $product_id 商品ID
      * @param int $quantity 数量
+     * @param int|null $variation_id バリエーションID
      * @return boolean 追加成功ならtrue
      */
-    public function addItem($user_id, $product_id, $quantity = 1) {
+    public function addItem($user_id, $product_id, $quantity = 1, $variation_id = null) {
         // 既存のカートアイテムをチェック
-        $query = "SELECT * FROM " . $this->table_name . " WHERE user_id = ? AND product_id = ?";
+        $query = "SELECT * FROM " . $this->table_name . " 
+                WHERE user_id = ? AND product_id = ?";
+        
+        // バリエーションIDがある場合は条件に追加
+        if($variation_id) {
+            $query .= " AND variation_id = ?";
+        } else {
+            $query .= " AND variation_id IS NULL";
+        }
+        
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $user_id);
         $stmt->bindParam(2, $product_id);
+        
+        if($variation_id) {
+            $stmt->bindParam(3, $variation_id);
+        }
+        
         $stmt->execute();
         
         if($stmt->rowCount() > 0) {
@@ -51,11 +66,15 @@ class Cart {
             }
         } else {
             // 新規アイテムを追加
-            $query = "INSERT INTO " . $this->table_name . " SET user_id = ?, product_id = ?, quantity = ?";
+            $query = "INSERT INTO " . $this->table_name . " 
+                    SET user_id = ?, product_id = ?, quantity = ?, variation_id = ?";
+            
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(1, $user_id);
             $stmt->bindParam(2, $product_id);
             $stmt->bindParam(3, $quantity);
+            $stmt->bindParam(4, $variation_id);
+            
             if($stmt->execute()) {
                 return true;
             }
@@ -70,13 +89,18 @@ class Cart {
      * @return PDOStatement 結果セット
      */
     public function getItems($user_id) {
-        $query = "SELECT c.id, c.product_id, c.quantity, p.name, p.price, p.image 
+        $query = "SELECT c.id, c.product_id, c.quantity, c.variation_id, 
+                    p.name, p.price, p.image, 
+                    pv.variation_name, pv.variation_value, pv.price_adjustment
                 FROM " . $this->table_name . " c 
                 LEFT JOIN products p ON c.product_id = p.id 
+                LEFT JOIN product_variations pv ON c.variation_id = pv.id
                 WHERE c.user_id = ?";
+        
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $user_id);
         $stmt->execute();
+        
         return $stmt;
     }
     

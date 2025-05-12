@@ -42,7 +42,13 @@ class Order {
         $total = 0;
         
         while($row = $items->fetch(PDO::FETCH_ASSOC)) {
-            $total += $row['price'] * $row['quantity'];
+            // バリエーションがある場合、価格を調整
+            $item_price = $row['price'];
+            if(isset($row['price_adjustment'])) {
+                $item_price += $row['price_adjustment'];
+            }
+            
+            $total += $item_price * $row['quantity'];
         }
         
         if($total == 0) {
@@ -86,13 +92,16 @@ class Order {
      * @param int $product_id 商品ID
      * @param int $quantity 数量
      * @param float $price 価格
+     * @param int|null $variation_id バリエーションID
+     * @return boolean 追加成功ならtrue
      */
-    public function addOrderItem($order_id, $product_id, $quantity, $price) {
+    public function addOrderItem($order_id, $product_id, $quantity, $price, $variation_id = null) {
         $query = "INSERT INTO order_items 
                 SET order_id = :order_id, 
                     product_id = :product_id, 
                     quantity = :quantity, 
-                    price = :price";
+                    price = :price, 
+                    variation_id = :variation_id";
         
         $stmt = $this->conn->prepare($query);
         
@@ -101,8 +110,9 @@ class Order {
         $stmt->bindParam(":product_id", $product_id);
         $stmt->bindParam(":quantity", $quantity);
         $stmt->bindParam(":price", $price);
+        $stmt->bindParam(":variation_id", $variation_id);
         
-        $stmt->execute();
+        return $stmt->execute();
     }
     
     /**
@@ -144,9 +154,10 @@ class Order {
      * @return PDOStatement 結果セット
      */
     public function getOrderItems($order_id) {
-        $query = "SELECT oi.*, p.name, p.image 
+        $query = "SELECT oi.*, p.name, p.image, pv.variation_name, pv.variation_value 
                 FROM order_items oi 
                 LEFT JOIN products p ON oi.product_id = p.id 
+                LEFT JOIN product_variations pv ON oi.variation_id = pv.id
                 WHERE oi.order_id = ?";
         
         $stmt = $this->conn->prepare($query);

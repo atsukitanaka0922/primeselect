@@ -33,27 +33,28 @@
                             <a class="nav-link" href="shop.php">商品一覧</a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 カテゴリ
                             </a>
-                            <div class="dropdown-menu">
+                            <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                                 <?php
                                 // カテゴリ一覧取得
-                                if(isset($db)) {
-                                    if(!class_exists('Category')) {
-                                        include_once "config/database.php";
-                                        include_once "classes/Category.php";
-                                        
-                                        $database = new Database();
-                                        $db = $database->getConnection();
-                                    }
-                                    
-                                    $category = new Category($db);
-                                    $stmt = $category->read();
-                                    
-                                    while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                        echo '<a class="dropdown-item" href="category.php?id=' . $row['id'] . '">' . $row['name'] . '</a>';
-                                    }
+                                // データベース接続とCategoryクラスの読み込みが確実に行われるようにする
+                                if(!isset($db) || !$db) {
+                                    include_once "config/database.php";
+                                    $database = new Database();
+                                    $db = $database->getConnection();
+                                }
+                                
+                                if(!class_exists('Category')) {
+                                    include_once "classes/Category.php";
+                                }
+                                
+                                $category = new Category($db);
+                                $stmt = $category->read();
+                                
+                                while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    echo '<a class="dropdown-item" href="category.php?id=' . $row['id'] . '">' . $row['name'] . '</a>';
                                 }
                                 ?>
                             </div>

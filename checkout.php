@@ -1,5 +1,17 @@
 <?php
+/**
+ * チェックアウトページ
+ * 
+ * 購入手続きを行い、配送情報と支払い方法を入力します。
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/Cart.php";
 include_once "classes/Order.php";
@@ -33,7 +45,13 @@ if(isset($_POST['place_order'])) {
         // カートアイテムを注文アイテムとして登録
         $items = $cart->getItems($user_id);
         while($item = $items->fetch(PDO::FETCH_ASSOC)) {
-            $order->addOrderItem($order_id, $item['product_id'], $item['quantity'], $item['price']);
+            // バリエーションがある場合、価格を調整
+            $item_price = $item['price'];
+            if(isset($item['price_adjustment'])) {
+                $item_price += $item['price_adjustment'];
+            }
+            
+            $order->addOrderItem($order_id, $item['product_id'], $item['quantity'], $item_price, $item['variation_id']);
         }
         
         // 支払い処理
@@ -84,15 +102,16 @@ include_once "templates/header.php";
     <div class="alert alert-danger"><?php echo $error_message; ?></div>
     <?php endif; ?>
     
+    <div class="alert alert-warning">
+        <strong>注意:</strong> これは模擬サイトです。実際のクレジットカード番号、個人情報などを入力しないでください。
+    </div>
+    
     <div class="row">
         <div class="col-md-8">
             <div class="card mb-4">
                 <div class="card-header">配送情報</div>
                 <div class="card-body">
                     <form method="post">
-                        <div class="alert alert-warning">
-                            <strong>注意:</strong> これは模擬サイトです。実際のクレジットカード番号、個人情報などを入力しないでください。
-                        </div>
                         <div class="form-group">
                             <label for="name">お名前 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="name" name="name" required
@@ -165,11 +184,23 @@ include_once "templates/header.php";
                     
                     while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                         extract($row);
-                        $subtotal = $price * $quantity;
+                        
+                        // バリエーションがある場合、価格を調整
+                        $item_price = $price;
+                        if(isset($price_adjustment)) {
+                            $item_price += $price_adjustment;
+                        }
+                        
+                        $subtotal = $item_price * $quantity;
                         $total += $subtotal;
                         ?>
                         <div class="d-flex justify-content-between mb-2">
-                            <span><?php echo $name; ?> x <?php echo $quantity; ?></span>
+                            <span>
+                                <?php echo $name; ?> x <?php echo $quantity; ?>
+                                <?php if(isset($variation_name) && isset($variation_value)): ?>
+                                <small class="text-muted d-block"><?php echo $variation_name; ?>: <?php echo $variation_value; ?></small>
+                                <?php endif; ?>
+                            </span>
                             <span>¥<?php echo number_format($subtotal); ?></span>
                         </div>
                         <?php

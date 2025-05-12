@@ -283,5 +283,67 @@ class Product {
         
         return null;
     }
+
+    /**
+     * 商品のバリエーションを取得
+     * 
+     * @param int $product_id 商品ID
+     * @return PDOStatement 結果セット
+     */
+    public function getProductVariations($product_id) {
+        $query = "SELECT * FROM product_variations 
+                WHERE product_id = ? 
+                ORDER BY variation_name, price_adjustment";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $product_id);
+        $stmt->execute();
+        
+        return $stmt;
+    }
+
+    /**
+     * 商品バリエーションを取得（ID指定）
+     * 
+     * @param int $variation_id バリエーションID
+     * @return array|null バリエーション情報
+     */
+    public function getVariationById($variation_id) {
+        $query = "SELECT * FROM product_variations WHERE id = ? LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $variation_id);
+        $stmt->execute();
+        
+        if($stmt->rowCount() > 0) {
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        return null;
+    }
+
+    /**
+     * 関連情報を含む商品バリエーションを取得
+     * 
+     * @param int $product_id 商品ID
+     * @return array バリエーションの配列（名前ごとにグループ化）
+     */
+    public function getGroupedVariations($product_id) {
+        $variations = [];
+        
+        $query = "SELECT * FROM product_variations 
+                WHERE product_id = ? 
+                ORDER BY variation_name, price_adjustment";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $product_id);
+        $stmt->execute();
+        
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $variations[$row['variation_name']][] = $row;
+        }
+        
+        return $variations;
+    }
 }
 ?>

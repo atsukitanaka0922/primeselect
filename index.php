@@ -28,7 +28,57 @@ $stmt = $product->read();
 include_once "templates/header.php";
 ?>
 
-<div class="container mt-5">
+<div class="container mt-4">
+    <!-- プロモーションバナー -->
+    <div class="jumbotron jumbotron-fluid promo-banner">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h2 class="display-4">夏の大セール開催中!</h2>
+                    <p class="lead">全商品が最大30%オフ！期間限定のスペシャル価格をお見逃しなく。</p>
+                    <a href="shop.php" class="btn btn-primary btn-lg">今すぐチェック</a>
+                </div>
+                <div class="col-md-6 text-right">
+                    <img src="assets/images/sale_banner.jpg" alt="Summer Sale" class="img-fluid rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 特集商品バナー -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card featured-product-card">
+                <div class="card-body text-center">
+                    <img src="assets/images/featured_item1.jpg" alt="新着商品" class="img-fluid mb-3">
+                    <h5>新着商品</h5>
+                    <p>最新のアイテムをチェック</p>
+                    <a href="shop.php?sort_by=created&sort_order=DESC" class="btn btn-outline-primary">詳細を見る</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card featured-product-card">
+                <div class="card-body text-center">
+                    <img src="assets/images/featured_item2.jpg" alt="人気商品" class="img-fluid mb-3">
+                    <h5>人気商品</h5>
+                    <p>みんなが選んだベストセラー</p>
+                    <a href="shop.php?sort_by=rating&sort_order=DESC" class="btn btn-outline-primary">詳細を見る</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card featured-product-card">
+                <div class="card-body text-center">
+                    <img src="assets/images/featured_item3.jpg" alt="限定商品" class="img-fluid mb-3">
+                    <h5>限定商品</h5>
+                    <p>数量限定の特別アイテム</p>
+                    <a href="shop.php?category_id=3" class="btn btn-outline-primary">詳細を見る</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- サイドバー -->
         <div class="col-md-3">
@@ -37,6 +87,7 @@ include_once "templates/header.php";
         
         <!-- 商品一覧 -->
         <div class="col-md-9">
+            <h3 class="mb-4">おすすめ商品</h3>
             <div class="row">
                 <?php
                 // 商品データをループして表示

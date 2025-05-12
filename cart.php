@@ -1,5 +1,17 @@
 <?php
+/**
+ * カートページ
+ * 
+ * ショッピングカートの内容を表示し、商品の追加、削除、数量変更を行います。
+ * 
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/Cart.php";
 include_once "classes/Product.php";
@@ -26,8 +38,9 @@ if(isset($_GET['action'])) {
     if($_GET['action'] == 'add' && isset($_GET['id'])) {
         $product_id = $_GET['id'];
         $quantity = isset($_GET['quantity']) ? intval($_GET['quantity']) : 1;
+        $variation_id = isset($_GET['variation_id']) ? intval($_GET['variation_id']) : null;
         
-        if($cart->addItem($user_id, $product_id, $quantity)) {
+        if($cart->addItem($user_id, $product_id, $quantity, $variation_id)) {
             $_SESSION['success_message'] = "商品をカートに追加しました。";
         } else {
             $_SESSION['error_message'] = "商品の追加に失敗しました。";
@@ -99,17 +112,29 @@ include_once "templates/header.php";
                         
                         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                             extract($row);
-                            $subtotal = $price * $quantity;
+                            
+                            // バリエーションがある場合、価格を調整
+                            $item_price = $price;
+                            if(isset($price_adjustment)) {
+                                $item_price += $price_adjustment;
+                            }
+                            
+                            $subtotal = $item_price * $quantity;
                             $total += $subtotal;
                             ?>
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <img src="assets/images/<?php echo $image; ?>" width="50" alt="<?php echo $name; ?>">
-                                        <span class="ml-2"><?php echo $name; ?></span>
+                                        <div class="ml-2">
+                                            <span><?php echo $name; ?></span>
+                                            <?php if(isset($variation_name) && isset($variation_value)): ?>
+                                            <div><small class="text-muted"><?php echo $variation_name; ?>: <?php echo $variation_value; ?></small></div>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </td>
-                                <td>¥<?php echo number_format($price); ?></td>
+                                <td>¥<?php echo number_format($item_price); ?></td>
                                 <td>
                                     <form method="post" action="cart.php?action=update" class="form-inline">
                                         <input type="hidden" name="id" value="<?php echo $id; ?>">
