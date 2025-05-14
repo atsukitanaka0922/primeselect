@@ -1,9 +1,6 @@
 <?php
 /**
- * レビュー管理ページ（管理者用）
- * 
- * @author Prime Select Team
- * @version 1.0
+ * admin/reviews.php - 修正版
  */
 
 session_start();
@@ -30,10 +27,13 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     $stmt->bindParam(1, $review_id);
     
     if($stmt->execute()) {
-        $success_message = "レビューを削除しました。";
+        $_SESSION['success_message'] = "レビューを削除しました。";
     } else {
-        $error_message = "レビューの削除に失敗しました。";
+        $_SESSION['error_message'] = "レビューの削除に失敗しました。";
     }
+    
+    header('Location: reviews.php');
+    exit();
 }
 
 include_once "templates/header.php";
@@ -47,12 +47,22 @@ include_once "templates/header.php";
         <div class="col-md-10">
             <h2 class="mt-4">レビュー管理</h2>
             
-            <?php if(isset($success_message)): ?>
-            <div class="alert alert-success"><?php echo $success_message; ?></div>
+            <?php if(isset($_SESSION['success_message'])): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
             <?php endif; ?>
             
-            <?php if(isset($error_message)): ?>
-            <div class="alert alert-danger"><?php echo $error_message; ?></div>
+            <?php if(isset($_SESSION['error_message'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
             <?php endif; ?>
             
             <!-- レビュー統計 -->
@@ -157,11 +167,11 @@ include_once "templates/header.php";
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <img src="../assets/images/<?php echo $row['image']; ?>" 
-                                                     alt="<?php echo $row['product_name']; ?>" width="40" class="mr-2">
-                                                <span><?php echo $row['product_name']; ?></span>
+                                                     alt="<?php echo htmlspecialchars($row['product_name']); ?>" width="40" class="mr-2">
+                                                <span><?php echo htmlspecialchars($row['product_name']); ?></span>
                                             </div>
                                         </td>
-                                        <td><?php echo $row['username']; ?></td>
+                                        <td><?php echo htmlspecialchars($row['username']); ?></td>
                                         <td>
                                             <?php for($i = 1; $i <= 5; $i++): ?>
                                                 <?php if($i <= $row['rating']): ?>
@@ -174,18 +184,19 @@ include_once "templates/header.php";
                                         </td>
                                         <td>
                                             <div style="max-width: 200px;">
-                                                <?php echo substr($row['comment'], 0, 100); ?>
+                                                <?php echo htmlspecialchars(substr($row['comment'], 0, 100)); ?>
                                                 <?php if(strlen($row['comment']) > 100): ?>...<?php endif; ?>
                                             </div>
                                         </td>
                                         <td><?php echo date('Y-m-d', strtotime($row['created'])); ?></td>
                                         <td>
-                                            <button class="btn btn-sm btn-info" data-toggle="modal" 
+                                            <button class="btn btn-sm btn-info review-detail-btn" 
+                                                    data-toggle="modal" 
                                                     data-target="#reviewModal" 
                                                     data-rating="<?php echo $row['rating']; ?>"
-                                                    data-comment="<?php echo $row['comment']; ?>"
-                                                    data-username="<?php echo $row['username']; ?>"
-                                                    data-product="<?php echo $row['product_name']; ?>"
+                                                    data-comment="<?php echo htmlspecialchars($row['comment']); ?>"
+                                                    data-username="<?php echo htmlspecialchars($row['username']); ?>"
+                                                    data-product="<?php echo htmlspecialchars($row['product_name']); ?>"
                                                     data-date="<?php echo date('Y-m-d H:i', strtotime($row['created'])); ?>">
                                                 詳細
                                             </button>
@@ -250,31 +261,42 @@ include_once "templates/header.php";
 </div>
 
 <script>
-$('#reviewModal').on('show.bs.modal', function (event) {
-    var button = $(event.relatedTarget);
-    var rating = button.data('rating');
-    var comment = button.data('comment');
-    var username = button.data('username');
-    var product = button.data('product');
-    var date = button.data('date');
-    
-    var modal = $(this);
-    modal.find('#modal-product').text(product);
-    modal.find('#modal-username').text(username);
-    modal.find('#modal-comment').text(comment);
-    modal.find('#modal-date').text(date);
-    
-    // 星を表示
-    var stars = '';
-    for(var i = 1; i <= 5; i++) {
-        if(i <= rating) {
-            stars += '<i class="fas fa-star text-warning"></i>';
-        } else {
-            stars += '<i class="far fa-star text-warning"></i>';
+$(document).ready(function() {
+    // レビュー詳細モーダルの修正
+    $('#reviewModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var rating = parseInt(button.data('rating'));
+        var comment = button.data('comment');
+        var username = button.data('username');
+        var product = button.data('product');
+        var date = button.data('date');
+        
+        console.log('Review modal data:', {
+            rating: rating,
+            comment: comment,
+            username: username,
+            product: product,
+            date: date
+        });
+        
+        var modal = $(this);
+        modal.find('#modal-product').text(product || '情報なし');
+        modal.find('#modal-username').text(username || '情報なし');
+        modal.find('#modal-comment').text(comment || 'コメントなし');
+        modal.find('#modal-date').text(date || '情報なし');
+        
+        // 星を表示
+        var stars = '';
+        for(var i = 1; i <= 5; i++) {
+            if(i <= rating) {
+                stars += '<i class="fas fa-star text-warning"></i>';
+            } else {
+                stars += '<i class="far fa-star text-warning"></i>';
+            }
         }
-    }
-    stars += ' (' + rating + ')';
-    modal.find('#modal-rating').html(stars);
+        stars += ' (' + rating + ')';
+        modal.find('#modal-rating').html(stars);
+    });
 });
 </script>
 

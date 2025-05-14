@@ -25,22 +25,36 @@ $product = new Product($db);
 
 // 在庫更新処理
 if(isset($_POST['update_stock'])) {
-    $product_id = $_POST['product_id'];
-    $variation_id = !empty($_POST['variation_id']) ? $_POST['variation_id'] : null;
+    $product_id = intval($_POST['product_id']);
+    $variation_id = !empty($_POST['variation_id']) ? intval($_POST['variation_id']) : null;
     $quantity_change = intval($_POST['quantity_change']);
-    $reason = $_POST['reason'];
+    $reason = trim($_POST['reason']);
     
-    // 現在の在庫を確認
-    $current_stock = $product->checkStock($product_id, $variation_id)['stock'];
-    $new_stock = $current_stock + $quantity_change;
-    
-    if($new_stock < 0) {
-        $error_message = "在庫が不足します。現在の在庫: " . $current_stock . "個";
+    // 入力値検証
+    if(empty($reason)) {
+        $error_message = "理由を入力してください。";
+    } elseif($quantity_change == 0) {
+        $error_message = "在庫変更数を入力してください。";
     } else {
-        if($product->updateStock($product_id, $variation_id, $quantity_change, $reason)) {
-            $success_message = "在庫を更新しました。新しい在庫: " . $new_stock . "個";
+        // 現在の在庫を確認
+        $current_stock = $product->checkStock($product_id, $variation_id)['stock'];
+        $new_stock = $current_stock + $quantity_change;
+        
+        if($new_stock < 0) {
+            $error_message = "在庫が不足します。現在の在庫: " . $current_stock . "個";
         } else {
-            $error_message = "在庫の更新に失敗しました。";
+            // 在庫更新を実行
+            try {
+                if($product->updateStock($product_id, $variation_id, $quantity_change, $reason)) {
+                    $success_message = "在庫を更新しました。新しい在庫: " . $new_stock . "個";
+                    header("Location: stock_management.php");
+                    exit();
+                } else {
+                    $error_message = "在庫の更新に失敗しました。";
+                }
+            } catch(Exception $e) {
+                $error_message = "在庫の更新中にエラーが発生しました: " . $e->getMessage();
+            }
         }
     }
 }
@@ -123,22 +137,27 @@ include_once "templates/header.php";
                                     $product_name = $row['name'];
                                     $main_stock = $row['stock'];
                                     
-                                    // 基本商品の在庫表示
-                                    if($main_stock > 0) {
+                                    // 受注生産品かチェック
+                                    $preorder_info = $product->getPreorderInfo($product_id);
+                                    if(!$preorder_info['is_preorder']) {
+                                        // 基本商品の在庫表示
                                         $stock_status = $product->getStockStatus($main_stock);
                                         $badge_class = $stock_status == 'out_of_stock' ? 'danger' : ($stock_status == 'low_stock' ? 'warning' : 'success');
                                         ?>
                                         <tr>
-                                            <td><?php echo $product_name; ?></td>
+                                            <td><?php echo htmlspecialchars($product_name); ?></td>
                                             <td>-</td>
                                             <td><?php echo $main_stock; ?>個</td>
                                             <td><span class="badge badge-<?php echo $badge_class; ?>"><?php echo ucfirst($stock_status); ?></span></td>
                                             <td>
-                                                <button class="btn btn-sm btn-primary" data-toggle="modal" 
+                                                <button class="btn btn-sm btn-primary stock-adjust-btn" 
+                                                        data-toggle="modal" 
                                                         data-target="#stockModal" 
                                                         data-product-id="<?php echo $product_id; ?>"
-                                                        data-product-name="<?php echo $product_name; ?>"
-                                                        data-variation-name="">
+                                                        data-variation-id=""
+                                                        data-product-name="<?php echo htmlspecialchars($product_name); ?>"
+                                                        data-variation-name="-"
+                                                        data-current-stock="<?php echo $main_stock; ?>">
                                                     在庫調整
                                                 </button>
                                             </td>
@@ -149,26 +168,31 @@ include_once "templates/header.php";
                                     // バリエーションの在庫表示
                                     $variations = $product->getProductVariations($product_id);
                                     while($var = $variations->fetch(PDO::FETCH_ASSOC)) {
-                                        $stock_status = $product->getStockStatus($var['stock']);
-                                        $badge_class = $stock_status == 'out_of_stock' ? 'danger' : ($stock_status == 'low_stock' ? 'warning' : 'success');
-                                        ?>
-                                        <tr>
-                                            <td><?php echo $product_name; ?></td>
-                                            <td><?php echo $var['variation_name']; ?>: <?php echo $var['variation_value']; ?></td>
-                                            <td><?php echo $var['stock']; ?>個</td>
-                                            <td><span class="badge badge-<?php echo $badge_class; ?>"><?php echo ucfirst($stock_status); ?></span></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-primary" data-toggle="modal" 
-                                                        data-target="#stockModal" 
-                                                        data-product-id="<?php echo $product_id; ?>"
-                                                        data-variation-id="<?php echo $var['id']; ?>"
-                                                        data-product-name="<?php echo $product_name; ?>"
-                                                        data-variation-name="<?php echo $var['variation_name']; ?>: <?php echo $var['variation_value']; ?>">
-                                                    在庫調整
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        <?php
+                                        if(!$preorder_info['is_preorder']) {
+                                            $stock_status = $product->getStockStatus($var['stock']);
+                                            $badge_class = $stock_status == 'out_of_stock' ? 'danger' : ($stock_status == 'low_stock' ? 'warning' : 'success');
+                                            $variation_display = $var['variation_name'] . ': ' . $var['variation_value'];
+                                            ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($product_name); ?></td>
+                                                <td><?php echo htmlspecialchars($variation_display); ?></td>
+                                                <td><?php echo $var['stock']; ?>個</td>
+                                                <td><span class="badge badge-<?php echo $badge_class; ?>"><?php echo ucfirst($stock_status); ?></span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-primary stock-adjust-btn" 
+                                                            data-toggle="modal" 
+                                                            data-target="#stockModal" 
+                                                            data-product-id="<?php echo $product_id; ?>"
+                                                            data-variation-id="<?php echo $var['id']; ?>"
+                                                            data-product-name="<?php echo htmlspecialchars($product_name); ?>"
+                                                            data-variation-name="<?php echo htmlspecialchars($variation_display); ?>"
+                                                            data-current-stock="<?php echo $var['stock']; ?>">
+                                                        在庫調整
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php
+                                        }
                                     }
                                 }
                                 ?>
@@ -210,8 +234,8 @@ include_once "templates/header.php";
                                     ?>
                                     <tr>
                                         <td><?php echo date('Y-m-d H:i', strtotime($log['created'])); ?></td>
-                                        <td><?php echo $log['product_name']; ?></td>
-                                        <td><?php echo $log['variation_name'] ? $log['variation_name'] . ': ' . $log['variation_value'] : '-'; ?></td>
+                                        <td><?php echo htmlspecialchars($log['product_name'] ?? 'N/A'); ?></td>
+                                        <td><?php echo $log['variation_name'] ? htmlspecialchars($log['variation_name'] . ': ' . $log['variation_value']) : '-'; ?></td>
                                         <td>
                                             <?php
                                             switch($log['type']) {
@@ -228,7 +252,7 @@ include_once "templates/header.php";
                                             ?>
                                         </td>
                                         <td><?php echo $log['quantity']; ?></td>
-                                        <td><?php echo $log['reason']; ?></td>
+                                        <td><?php echo htmlspecialchars($log['reason'] ?? ''); ?></td>
                                     </tr>
                                     <?php
                                 }
@@ -259,7 +283,7 @@ include_once "templates/header.php";
                     
                     <div class="form-group">
                         <label>商品名</label>
-                        <p id="modal-product-name" class="form-control-plaintext"></p>
+                        <p id="modal-product-name" class="form-control-plaintext font-weight-bold"></p>
                     </div>
                     <div class="form-group">
                         <label>バリエーション</label>
@@ -280,7 +304,8 @@ include_once "templates/header.php";
                     </div>
                     <div class="form-group">
                         <label for="reason">理由 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="reason" name="reason" required>
+                        <input type="text" class="form-control" id="reason" name="reason" required 
+                               placeholder="例：入荷、返品、破損、在庫調整など">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -293,89 +318,122 @@ include_once "templates/header.php";
 </div>
 
 <script>
-// モーダルが表示される前のイベント
-$('#stockModal').on('show.bs.modal', function (event) {
-    var button = $(event.relatedTarget);
-    var productId = button.data('product-id');
-    var variationId = button.data('variation-id');
-    var productName = button.data('product-name');
-    var variationName = button.data('variation-name');
+$(document).ready(function() {
+    // デバッグ用：モーダル表示前のデータ確認
+    $('.stock-adjust-btn').on('click', function() {
+        console.log('Button clicked');
+        console.log('Product ID:', $(this).data('product-id'));
+        console.log('Variation ID:', $(this).data('variation-id'));
+        console.log('Product Name:', $(this).data('product-name'));
+        console.log('Variation Name:', $(this).data('variation-name'));
+        console.log('Current Stock:', $(this).data('current-stock'));
+    });
     
-    var modal = $(this);
-    modal.find('#modal-product-id').val(productId);
-    modal.find('#modal-variation-id').val(variationId);
-    modal.find('#modal-product-name').text(productName);
-    modal.find('#modal-variation-name').text(variationName || '-');
-    
-    // 現在の在庫数を取得して表示
-    var currentStock = 0;
-    var stockCell = button.closest('tr').find('td:nth-child(3)').text();
-    if(stockCell) {
-        // "12個" → "12" に変換
-        var match = stockCell.match(/(\d+)/);
-        if(match) {
-            currentStock = parseInt(match[1]);
-        }
-    }
-    
-    modal.find('#current_stock').val(currentStock);
-    modal.find('#quantity_change').val('').removeClass('is-invalid');
-    modal.find('#new_stock').val(currentStock).removeClass('is-invalid');
-    
-    // 在庫変更数入力時のイベントリスナーをクリア
-    $('#quantity_change').off('input.stock');
-    
-    // 在庫変更数入力時に新在庫数を計算
-    $('#quantity_change').on('input.stock', function() {
-        var change = parseInt($(this).val()) || 0;
-        var newStock = currentStock + change;
-        $('#new_stock').val(newStock);
+    // 在庫調整モーダルのイベント処理
+    $('#stockModal').on('show.bs.modal', function (event) {
+        console.log('Modal show event triggered');
         
-        // 在庫が負の値になる場合は警告
+        var button = $(event.relatedTarget);
+        var modal = $(this);
+        
+        // データ属性から値を取得
+        var productId = button.data('product-id');
+        var variationId = button.data('variation-id') || '';
+        var productName = button.data('product-name') || '商品名が取得できません';
+        var variationName = button.data('variation-name') || '-';
+        var currentStock = parseInt(button.data('current-stock')) || 0;
+        
+        console.log('Retrieved data:', {
+            productId: productId,
+            variationId: variationId,
+            productName: productName,
+            variationName: variationName,
+            currentStock: currentStock
+        });
+        
+        // モーダルのフィールドに値を設定
+        modal.find('#modal-product-id').val(productId);
+        modal.find('#modal-variation-id').val(variationId);
+        modal.find('#modal-product-name').text(productName);
+        modal.find('#modal-variation-name').text(variationName);
+        modal.find('#current_stock').val(currentStock);
+        modal.find('#new_stock').val(currentStock);
+        
+        // フィールドをリセット
+        modal.find('#quantity_change').val('').removeClass('is-invalid');
+        modal.find('#reason').val('');
+        modal.find('#new_stock').removeClass('is-invalid');
+        
+        // 在庫変更数入力時の計算
+        $('#quantity_change').off('input.stock').on('input.stock', function() {
+            var change = parseInt($(this).val()) || 0;
+            var newStock = currentStock + change;
+            $('#new_stock').val(newStock);
+            
+            // バリデーション表示
+            if(newStock < 0) {
+                $('#new_stock').addClass('is-invalid');
+                $(this).addClass('is-invalid');
+            } else {
+                $('#new_stock').removeClass('is-invalid');
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        // デバッグ用：設定後の確認
+        setTimeout(function() {
+            console.log('Modal fields after setting:');
+            console.log('Product Name:', modal.find('#modal-product-name').text());
+            console.log('Variation Name:', modal.find('#modal-variation-name').text());
+            console.log('Current Stock:', modal.find('#current_stock').val());
+        }, 100);
+    });
+
+    // モーダルクローズ時のクリーンアップ
+    $('#stockModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+        $(this).find('.is-invalid').removeClass('is-invalid');
+    });
+
+    // フォーム送信時のバリデーション
+    $('#stockModal form').on('submit', function(e) {
+        var newStock = parseInt($('#new_stock').val());
+        var change = parseInt($('#quantity_change').val());
+        var reason = $('#reason').val().trim();
+        
+        if(!reason) {
+            e.preventDefault();
+            alert('理由を入力してください。');
+            $('#reason').focus();
+            return false;
+        }
+        
+        if(isNaN(change) || change === 0) {
+            e.preventDefault();
+            alert('在庫変更数を入力してください。');
+            $('#quantity_change').focus();
+            return false;
+        }
+        
         if(newStock < 0) {
-            $('#new_stock').addClass('is-invalid');
-            $(this).addClass('is-invalid');
-        } else {
-            $('#new_stock').removeClass('is-invalid');
-            $(this).removeClass('is-invalid');
+            e.preventDefault();
+            alert('在庫が負の値になります。在庫変更数を確認してください。');
+            $('#quantity_change').focus();
+            return false;
+        }
+        
+        var message = '在庫を ' + change + ' 変更しますか？\n\n';
+        message += '商品: ' + $('#modal-product-name').text() + '\n';
+        message += 'バリエーション: ' + $('#modal-variation-name').text() + '\n';
+        message += '現在在庫: ' + $('#current_stock').val() + '個\n';
+        message += '変更後在庫: ' + newStock + '個\n';
+        message += '理由: ' + reason;
+        
+        if(!confirm(message)) {
+            e.preventDefault();
+            return false;
         }
     });
-});
-
-// モーダルがクローズされた時のクリーンアップ
-$('#stockModal').on('hidden.bs.modal', function () {
-    $(this).find('form')[0].reset();
-    $(this).find('.is-invalid').removeClass('is-invalid');
-});
-
-// フォーム送信時のバリデーション
-$('#stockModal').on('submit', 'form', function(e) {
-    var newStock = parseInt($('#new_stock').val());
-    var change = parseInt($('#quantity_change').val());
-    
-    // 変更数が入力されていない場合
-    if(isNaN(change) || change === 0) {
-        e.preventDefault();
-        alert('在庫変更数を入力してください。');
-        return false;
-    }
-    
-    // 在庫が負の値になる場合
-    if(newStock < 0) {
-        e.preventDefault();
-        alert('在庫が負の値になります。在庫変更数を確認してください。');
-        return false;
-    }
-    
-    // 確認メッセージ
-    var message = '在庫を ' + change + ' 変更しますか？\n';
-    message += '現在在庫: ' + $('#current_stock').val() + '個\n';
-    message += '変更後在庫: ' + newStock + '個';
-    
-    if(!confirm(message)) {
-        e.preventDefault();
-        return false;
-    }
 });
 </script>
 

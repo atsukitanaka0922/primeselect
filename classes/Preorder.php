@@ -1,11 +1,12 @@
 <?php
 /**
- * 予約注文クラス
+ * 予約注文クラス（修正版）
  * 
  * 受注生産商品の予約注文を管理するクラス
+ * updateStatusメソッドにデバッグログとエラーハンドリングを追加
  * 
  * @author Prime Select Team
- * @version 1.0
+ * @version 1.1
  */
 class Preorder {
     // データベース接続とテーブル名
@@ -88,20 +89,44 @@ class Preorder {
     }
     
     /**
-     * 予約注文状態更新
+     * 予約注文状態更新（デバッグログ付き修正版）
      * 
      * @param int $preorder_id 予約注文ID
      * @param string $status 新しいステータス
      * @return boolean 更新成功ならtrue
      */
     public function updateStatus($preorder_id, $status) {
+        // 入力値の検証
+        if (!is_numeric($preorder_id) || empty($status)) {
+            error_log("Preorder updateStatus - Invalid input: preorder_id=$preorder_id, status=$status");
+            return false;
+        }
+        
+        // 有効なステータス値の確認
+        $valid_statuses = ['pending', 'confirmed', 'production', 'shipped', 'delivered', 'cancelled'];
+        if (!in_array($status, $valid_statuses)) {
+            error_log("Preorder updateStatus - Invalid status: $status");
+            return false;
+        }
+        
+        error_log("Preorder updateStatus - Updating preorder status: preorder_id=$preorder_id, status=$status");
+        
         $query = "UPDATE " . $this->table_name . " SET status = ? WHERE id = ?";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $status);
         $stmt->bindParam(2, $preorder_id);
         
-        return $stmt->execute();
+        $success = $stmt->execute();
+        
+        if (!$success) {
+            $error_info = $stmt->errorInfo();
+            error_log("Preorder updateStatus - Update failed: " . implode(", ", $error_info));
+        } else {
+            error_log("Preorder updateStatus - Update successful");
+        }
+        
+        return $success;
     }
     
     /**
@@ -112,10 +137,12 @@ class Preorder {
      */
     public function read($preorder_id) {
         $query = "SELECT p.*, pr.name as product_name, pr.image, pr.price,
-                         pv.variation_name, pv.variation_value, pv.price_adjustment 
+                         pv.variation_name, pv.variation_value, pv.price_adjustment,
+                         u.username as customer_name
                 FROM " . $this->table_name . " p 
                 LEFT JOIN products pr ON p.product_id = pr.id 
                 LEFT JOIN product_variations pv ON p.variation_id = pv.id 
+                LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.id = ? LIMIT 1";
         
         $stmt = $this->conn->prepare($query);
@@ -208,6 +235,44 @@ class Preorder {
         }
         
         return false;
+    }
+    
+    /**
+     * ステータス別予約注文数取得
+     * 
+     * @param string $status ステータス
+     * @return int 指定ステータスの予約注文数
+     */
+    public function countByStatus($status) {
+        $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " WHERE status = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $status);
+        $stmt->execute();
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row['count'];
+    }
+    
+    /**
+     * 配送予定日の更新
+     * 
+     * @param int $preorder_id 予約注文ID
+     * @param string $estimated_delivery 配送予定日
+     * @return boolean 更新成功ならtrue
+     */
+    public function updateEstimatedDelivery($preorder_id, $estimated_delivery) {
+        $query = "UPDATE " . $this->table_name . " SET estimated_delivery = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $estimated_delivery);
+        $stmt->bindParam(2, $preorder_id);
+        
+        $success = $stmt->execute();
+        
+        if (!$success) {
+            error_log("Preorder estimated delivery update failed: " . implode(", ", $stmt->errorInfo()));
+        }
+        
+        return $success;
     }
 }
 ?>

@@ -23,22 +23,35 @@ $user = new User($db);
 
 // 管理者権限の更新処理
 if(isset($_POST['update_admin_status'])) {
-    $user_id = $_POST['user_id'];
+    $user_id = intval($_POST['user_id']);
     $is_admin = isset($_POST['is_admin']) ? 1 : 0;
     
-    if($user->updateAdminStatus($user_id, $is_admin)) {
-        $success_message = "ユーザーの権限を更新しました。";
+    // 自分自身の権限を変更しようとした場合の確認
+    if($user_id == $_SESSION['user_id'] && $is_admin == 0) {
+        $error_message = "自分自身の管理者権限を削除することはできません。";
     } else {
-        $error_message = "権限の更新に失敗しました。";
+        try {
+            if($user->updateAdminStatus($user_id, $is_admin)) {
+                $success_message = "ユーザーの権限を更新しました。";
+                header("Location: users.php");
+                exit();
+            } else {
+                $error_message = "権限の更新に失敗しました。";
+            }
+        } catch(Exception $e) {
+            $error_message = "権限の更新中にエラーが発生しました: " . $e->getMessage();
+        }
     }
 }
 
 // ユーザー削除処理
 if(isset($_GET['delete']) && isset($_GET['id'])) {
-    $user_id = $_GET['id'];
+    $user_id = intval($_GET['id']);
     
     if($user->delete($user_id)) {
         $success_message = "ユーザーを削除しました。";
+        header("Location: users.php");
+        exit();
     } else {
         $error_message = "ユーザーの削除に失敗しました。管理者は削除できません。";
     }
@@ -108,8 +121,8 @@ include_once "templates/header.php";
                                     ?>
                                     <tr>
                                         <td><?php echo $row['id']; ?></td>
-                                        <td><?php echo $row['username']; ?></td>
-                                        <td><?php echo $row['email']; ?></td>
+                                        <td><?php echo htmlspecialchars($row['username']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['email']); ?></td>
                                         <td>
                                             <?php if($row['is_admin']): ?>
                                                 <span class="badge badge-danger">管理者</span>
@@ -122,7 +135,7 @@ include_once "templates/header.php";
                                             <button class="btn btn-sm btn-primary" data-toggle="modal" 
                                                     data-target="#permissionModal" 
                                                     data-user-id="<?php echo $row['id']; ?>"
-                                                    data-username="<?php echo $row['username']; ?>"
+                                                    data-username="<?php echo htmlspecialchars($row['username']); ?>"
                                                     data-is-admin="<?php echo $row['is_admin']; ?>">
                                                 権限変更
                                             </button>
@@ -182,16 +195,19 @@ include_once "templates/header.php";
 </div>
 
 <script>
-$('#permissionModal').on('show.bs.modal', function (event) {
-    var button = $(event.relatedTarget);
-    var userId = button.data('user-id');
-    var username = button.data('username');
-    var isAdmin = button.data('is-admin');
-    
-    var modal = $(this);
-    modal.find('#modal-user-id').val(userId);
-    modal.find('#modal-username').text(username);
-    modal.find('#modal-is-admin').prop('checked', isAdmin == 1);
+$(document).ready(function() {
+    // 権限変更モーダル
+    $('#permissionModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var userId = button.data('user-id');
+        var username = button.data('username');
+        var isAdmin = button.data('is-admin');
+        
+        var modal = $(this);
+        modal.find('#modal-user-id').val(userId);
+        modal.find('#modal-username').text(username);
+        modal.find('#modal-is-admin').prop('checked', isAdmin == 1 || isAdmin == '1');
+    });
 });
 </script>
 

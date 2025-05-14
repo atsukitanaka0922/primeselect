@@ -523,33 +523,42 @@ class Product {
     }
     
     /**
-     * 在庫レベルをチェック
+     * 在庫レベルをチェック（デバッグ情報付き）
      * 
      * @param int $product_id 商品ID
      * @param int|null $variation_id バリエーションID
      * @return array 在庫情報
      */
     public function checkStock($product_id, $variation_id = null) {
-        if ($variation_id) {
-            $query = "SELECT stock FROM product_variations WHERE id = ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(1, $variation_id);
-        } else {
-            $query = "SELECT stock FROM products WHERE id = ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(1, $product_id);
+        try {
+            if ($variation_id) {
+                $query = "SELECT stock FROM product_variations WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(1, $variation_id);
+            } else {
+                $query = "SELECT stock FROM products WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(1, $product_id);
+            }
+            
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $stock = $row ? intval($row['stock']) : 0;
+            
+            return [
+                'stock' => $stock,
+                'is_available' => $stock > 0,
+                'status' => $this->getStockStatus($stock)
+            ];
+        } catch (Exception $e) {
+            error_log("Stock check error: " . $e->getMessage());
+            return [
+                'stock' => 0,
+                'is_available' => false,
+                'status' => 'out_of_stock'
+            ];
         }
-        
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $stock = $row['stock'] ?? 0;
-        
-        return [
-            'stock' => $stock,
-            'is_available' => $stock > 0,
-            'status' => $this->getStockStatus($stock)
-        ];
     }
     
     /**
@@ -569,70 +578,94 @@ class Product {
     }
     
     /**
-     * 在庫を更新（トランザクション修正版）
-     * 
-     * @param int $product_id 商品ID
-     * @param int|null $variation_id バリエーションID
-     * @param int $quantity 変更数量（正数：入庫、負数：出庫）
-     * @param string $reason 理由
-     * @return boolean 更新成功ならtrue
-     */
-    public function updateStock($product_id, $variation_id, $quantity, $reason = '') {
-        // 既にトランザクションが開始されているかチェック
-        $transaction_started = false;
-        if (!$this->conn->inTransaction()) {
-            $this->conn->beginTransaction();
-            $transaction_started = true;
-        }
-        
-        try {
-            // 現在の在庫を確認
-            $current_stock = $this->checkStock($product_id, $variation_id)['stock'];
-            $new_stock = $current_stock + $quantity;
-            
-            if ($new_stock < 0) {
-                throw new Exception('在庫が不足しています');
-            }
-            
-            // 在庫を更新
-            if ($variation_id) {
-                $query = "UPDATE product_variations SET stock = ? WHERE id = ?";
-                $stmt = $this->conn->prepare($query);
-                $stmt->bindParam(1, $new_stock);
-                $stmt->bindParam(2, $variation_id);
-            } else {
-                $query = "UPDATE products SET stock = ? WHERE id = ?";
-                $stmt = $this->conn->prepare($query);
-                $stmt->bindParam(1, $new_stock);
-                $stmt->bindParam(2, $product_id);
-            }
-            
-            $stmt->execute();
-            
-            // 在庫ログを記録
-            $this->logStockChange($product_id, $variation_id, $quantity, $reason);
-            
-            // 自分でトランザクションを開始した場合のみコミット
-            if ($transaction_started) {
-                $this->conn->commit();
-            }
-            return true;
-        } catch (Exception $e) {
-            // 自分でトランザクションを開始した場合のみロールバック
-            if ($transaction_started) {
-                $this->conn->rollback();
-            }
-            return false;
-        }
-    }
-    
-    /**
-     * 在庫変更ログを記録
+     * 在庫を更新（修正版）
      * 
      * @param int $product_id 商品ID
      * @param int|null $variation_id バリエーションID
      * @param int $quantity 変更数量
      * @param string $reason 理由
+     * @return boolean 更新成功ならtrue
+     */
+    public function updateStock($product_id, $variation_id, $quantity, $reason = '') {
+        // 入力値検証
+        if(empty($reason)) {
+            error_log("Stock update failed: Reason is required");
+            return false;
+        }
+        
+        // トランザクション開始
+        $this->conn->beginTransaction();
+        
+        try {
+            // 現在の在庫を確認
+            if ($variation_id) {
+                $query = "SELECT stock FROM product_variations WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(1, $variation_id, PDO::PARAM_INT);
+            } else {
+                $query = "SELECT stock FROM products WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(1, $product_id, PDO::PARAM_INT);
+            }
+            
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                throw new Exception("商品または商品バリエーションが見つかりません (Product ID: $product_id, Variation ID: $variation_id)");
+            }
+            
+            $current_stock = intval($row['stock']);
+            $new_stock = $current_stock + intval($quantity);
+            
+            // 在庫が負にならないかチェック
+            if ($new_stock < 0) {
+                throw new Exception("在庫が不足しています。現在の在庫: {$current_stock}個、変更数: {$quantity}個");
+            }
+            
+            // 在庫を更新
+            if ($variation_id) {
+                $update_query = "UPDATE product_variations SET stock = ? WHERE id = ?";
+                $update_stmt = $this->conn->prepare($update_query);
+                $update_stmt->bindParam(1, $new_stock, PDO::PARAM_INT);
+                $update_stmt->bindParam(2, $variation_id, PDO::PARAM_INT);
+            } else {
+                $update_query = "UPDATE products SET stock = ? WHERE id = ?";
+                $update_stmt = $this->conn->prepare($update_query);
+                $update_stmt->bindParam(1, $new_stock, PDO::PARAM_INT);
+                $update_stmt->bindParam(2, $product_id, PDO::PARAM_INT);
+            }
+            
+            if (!$update_stmt->execute()) {
+                throw new Exception("在庫更新クエリの実行に失敗しました");
+            }
+            
+            // 在庫ログを記録
+            $log_result = $this->logStockChange($product_id, $variation_id, $quantity, $reason);
+            if (!$log_result) {
+                error_log("Stock log creation failed, but continuing...");
+            }
+            
+            $this->conn->commit();
+            
+            error_log("Stock updated successfully: Product ID: $product_id, Variation ID: $variation_id, Change: $quantity, New Stock: $new_stock");
+            return true;
+            
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            error_log("Stock update error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 在庫変更ログを記録（修正版）
+     * 
+     * @param int $product_id 商品ID
+     * @param int|null $variation_id バリエーションID
+     * @param int $quantity 変更数量
+     * @param string $reason 理由
+     * @return boolean 記録成功ならtrue
      */
     private function logStockChange($product_id, $variation_id, $quantity, $reason = '') {
         $type = $quantity > 0 ? 'in' : ($quantity < 0 ? 'out' : 'adjust');
@@ -641,12 +674,20 @@ class Product {
                   SET product_id = ?, variation_id = ?, type = ?, quantity = ?, reason = ?";
         
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $product_id);
-        $stmt->bindParam(2, $variation_id);
+        $stmt->bindParam(1, $product_id, PDO::PARAM_INT);
+        
+        // variation_id が null の場合は null をバインド
+        if ($variation_id) {
+            $stmt->bindParam(2, $variation_id, PDO::PARAM_INT);
+        } else {
+            $stmt->bindParam(2, $variation_id, PDO::PARAM_NULL);
+        }
+        
         $stmt->bindParam(3, $type);
-        $stmt->bindParam(4, abs($quantity));
+        $stmt->bindParam(4, abs($quantity), PDO::PARAM_INT);
         $stmt->bindParam(5, $reason);
-        $stmt->execute();
+        
+        return $stmt->execute();
     }
     
     /**

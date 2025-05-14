@@ -159,8 +159,8 @@ include_once "templates/header.php";
                                     ?>
                                     <tr>
                                         <td><?php echo $row['id']; ?></td>
-                                        <td><?php echo $row['name']; ?></td>
-                                        <td><?php echo $row['description'] ?? ''; ?></td>
+                                        <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['description'] ?? ''); ?></td>
                                         <td><?php echo $count_result['product_count']; ?>件</td>
                                         <td>
                                             <?php 
@@ -228,16 +228,19 @@ include_once "templates/header.php";
 </div>
 
 <script>
-$('#editModal').on('show.bs.modal', function (event) {
-    var button = $(event.relatedTarget);
-    var id = button.data('id');
-    var name = button.data('name');
-    var description = button.data('description');
-    
-    var modal = $(this);
-    modal.find('#modal-category-id').val(id);
-    modal.find('#modal-name').val(name);
-    modal.find('#modal-description').val(description);
+$(document).ready(function() {
+    // カテゴリ編集モーダル
+    $('#editModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var id = button.data('id');
+        var name = button.data('name');
+        var description = button.data('description');
+        
+        var modal = $(this);
+        modal.find('#modal-category-id').val(id);
+        modal.find('#modal-name').val(name);
+        modal.find('#modal-description').val(description);
+    });
 });
 </script>
 

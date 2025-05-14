@@ -1,6 +1,6 @@
 <?php
 /**
- * ユーザークラス
+ * ユーザークラス（修正版）
  * 
  * ユーザー情報の管理と操作を行うクラス
  * 管理者フラグの対応を含む
@@ -212,19 +212,36 @@ class User {
     }
     
     /**
-     * ユーザーの管理者権限変更（管理者用）
+     * ユーザーの管理者権限変更（デバッグログ付き修正版）
      * 
      * @param int $user_id ユーザーID
      * @param int $is_admin 管理者フラグ（0または1）
      * @return boolean 更新成功ならtrue
      */
     public function updateAdminStatus($user_id, $is_admin) {
+        // 入力値の検証
+        if (!is_numeric($user_id)) {
+            error_log("Invalid user_id: $user_id");
+            return false;
+        }
+        
+        $is_admin = intval($is_admin);
+        error_log("Updating admin status: user_id=$user_id, is_admin=$is_admin");
+        
         $query = "UPDATE " . $this->table_name . " SET is_admin = ? WHERE id = ?";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $is_admin);
         $stmt->bindParam(2, $user_id);
         
-        return $stmt->execute();
+        $success = $stmt->execute();
+        
+        if (!$success) {
+            error_log("Admin status update failed: " . implode(", ", $stmt->errorInfo()));
+        } else {
+            error_log("Admin status update successful");
+        }
+        
+        return $success;
     }
     
     /**

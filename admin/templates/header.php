@@ -12,7 +12,7 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prime Select - 管理パネル</title>
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <!-- カスタムCSS -->
@@ -22,6 +22,25 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
         background-color: #dc3545;
         color: white;
         padding: 10px 0;
+    }
+    .is-invalid {
+        border-color: #dc3545 !important;
+    }
+    .stock-low {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .stock-medium {
+        color: #ffc107;
+        font-weight: bold;
+    }
+    .stock-high {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .stock-out {
+        color: #6c757d;
+        font-style: italic;
     }
     </style>
 </head>

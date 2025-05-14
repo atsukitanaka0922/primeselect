@@ -82,7 +82,7 @@ include_once "templates/header.php";
                             <?php while($row = $recent_orders->fetch(PDO::FETCH_ASSOC)): ?>
                             <tr>
                                 <td><?php echo $row['id']; ?></td>
-                                <td><?php echo $row['username']; ?></td>
+                                <td><?php echo htmlspecialchars($row['username']); ?></td>
                                 <td>¥<?php echo number_format($row['total_amount']); ?></td>
                                 <td>
                                     <?php if($row['status'] == 'pending'): ?>

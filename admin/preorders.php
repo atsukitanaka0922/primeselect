@@ -23,31 +23,42 @@ $preorder = new Preorder($db);
 
 // ステータス更新処理
 if(isset($_POST['update_preorder_status'])) {
-    $preorder_id = $_POST['preorder_id'];
+    $preorder_id = intval($_POST['preorder_id']);
     $new_status = $_POST['status'];
     $estimated_delivery = $_POST['estimated_delivery'] ?? null;
     
-    if($preorder->updateStatus($preorder_id, $new_status)) {
-        // 配送予定日の更新も行う場合
-        if($estimated_delivery) {
-            $query = "UPDATE preorders SET estimated_delivery = ? WHERE id = ?";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(1, $estimated_delivery);
-            $stmt->bindParam(2, $preorder_id);
-            $stmt->execute();
+    // 有効なステータスかチェック
+    $valid_statuses = ['pending', 'confirmed', 'production', 'shipped', 'delivered', 'cancelled'];
+    if(in_array($new_status, $valid_statuses)) {
+        // ステータス更新
+        if($preorder->updateStatus($preorder_id, $new_status)) {
+            // 配送予定日の更新
+            if($estimated_delivery) {
+                $query = "UPDATE preorders SET estimated_delivery = ? WHERE id = ?";
+                $stmt = $db->prepare($query);
+                $stmt->bindParam(1, $estimated_delivery);
+                $stmt->bindParam(2, $preorder_id);
+                $stmt->execute();
+            }
+            
+            $success_message = "予約注文ステータスを更新しました。";
+            header("Location: preorders.php");
+            exit();
+        } else {
+            $error_message = "ステータスの更新に失敗しました。";
         }
-        
-        $success_message = "予約注文ステータスを更新しました。";
     } else {
-        $error_message = "ステータスの更新に失敗しました。";
+        $error_message = "無効なステータスです。";
     }
 }
 
 // 予約注文キャンセル処理
 if(isset($_GET['cancel']) && isset($_GET['id'])) {
-    $preorder_id = $_GET['id'];
+    $preorder_id = intval($_GET['id']);
     if($preorder->updateStatus($preorder_id, 'cancelled')) {
         $success_message = "予約注文をキャンセルしました。";
+        header("Location: preorders.php");
+        exit();
     } else {
         $error_message = "予約注文のキャンセルに失敗しました。";
     }
@@ -168,16 +179,18 @@ include_once "templates/header.php";
                                     ?>
                                     <tr>
                                         <td>#<?php echo $id; ?></td>
-                                        <td><?php echo $username; ?></td>
+                                        <td><?php echo htmlspecialchars($username ?? 'N/A'); ?></td>
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <img src="../assets/images/<?php echo $image; ?>" alt="<?php echo $product_name; ?>" width="40" class="mr-2">
-                                                <?php echo $product_name; ?>
+                                                <?php if($image): ?>
+                                                    <img src="../assets/images/<?php echo htmlspecialchars($image); ?>" alt="<?php echo htmlspecialchars($product_name); ?>" width="40" class="mr-2">
+                                                <?php endif; ?>
+                                                <?php echo htmlspecialchars($product_name ?? 'N/A'); ?>
                                             </div>
                                         </td>
                                         <td>
                                             <?php if($variation_name && $variation_value): ?>
-                                                <?php echo $variation_name; ?>: <?php echo $variation_value; ?>
+                                                <?php echo htmlspecialchars($variation_name); ?>: <?php echo htmlspecialchars($variation_value); ?>
                                             <?php else: ?>
                                                 -
                                             <?php endif; ?>
@@ -261,10 +274,10 @@ include_once "templates/header.php";
                     <input type="hidden" name="preorder_id" id="modal-preorder-id">
                     <div class="form-group">
                         <label>現在のステータス</label>
-                        <input type="text" class="form-control" id="current-preorder-status" readonly>
+                        <input type="text" class="form-control" id="current-status" readonly>
                     </div>
                     <div class="form-group">
-                        <label for="status">新しいステータス</label>
+                        <label for="modal-status">新しいステータス</label>
                         <select class="form-control" name="status" id="modal-status" required>
                             <option value="">選択してください</option>
                             <option value="pending">受付中</option>
@@ -276,7 +289,7 @@ include_once "templates/header.php";
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="estimated_delivery">配送予定日（オプション）</label>
+                        <label for="modal-estimated-delivery">配送予定日（オプション）</label>
                         <input type="date" class="form-control" name="estimated_delivery" id="modal-estimated-delivery">
                         <small class="form-text text-muted">製作中以降のステータスで設定することを推奨します</small>
                     </div>
@@ -313,7 +326,7 @@ $(document).ready(function() {
             'delivered': '配送完了',
             'cancelled': 'キャンセル'
         };
-        modal.find('#current-preorder-status').val(statusTexts[currentStatus] || currentStatus);
+        modal.find('#current-status').val(statusTexts[currentStatus] || currentStatus);
     });
 
     // フォーム送信前の確認
@@ -326,7 +339,7 @@ $(document).ready(function() {
         }
         
         var preorderId = $('#modal-preorder-id').val();
-        var currentStatus = $('#current-preorder-status').val();
+        var currentStatus = $('#current-status').val();
         var newStatusText = $('#modal-status option:selected').text();
         var estimatedDelivery = $('#modal-estimated-delivery').val();
         

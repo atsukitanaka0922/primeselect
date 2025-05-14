@@ -120,7 +120,6 @@ class Order {
                     // 受注生産商品でない場合のみ在庫を減らす
                     $preorder_info = $product->getPreorderInfo($item['product_id']);
                     if(!$preorder_info['is_preorder']) {
-                        // updateStockメソッドが独自のトランザクションを開始しないよう確認する必要があります
                         $this->updateStockWithoutTransaction($product, $item['product_id'], $item['variation_id'], -$item['quantity'], '注文による出庫 #' . $order_id);
                     }
                 }
@@ -233,7 +232,7 @@ class Order {
                 WHERE o.id = ? LIMIT 1";
         
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $id);
+        $stmt->bindParam(1, $id, PDO::PARAM_INT);
         $stmt->execute();
         
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -266,27 +265,74 @@ class Order {
                 WHERE oi.order_id = ?";
         
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $order_id);
+        $stmt->bindParam(1, $order_id, PDO::PARAM_INT);
         $stmt->execute();
         
         return $stmt;
     }
     
     /**
-     * 注文状態更新
+     * 注文状態更新（最終修正版）
      * 
      * @param int $order_id 注文ID
      * @param string $status 新しいステータス
      * @return boolean 更新成功ならtrue
      */
     public function updateStatus($order_id, $status) {
-        $query = "UPDATE " . $this->table_name . " SET status = ? WHERE id = ?";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $status);
-        $stmt->bindParam(2, $order_id);
-        
-        return $stmt->execute();
+        try {
+            // ステータスのバリデーション
+            $valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+            if(!in_array($status, $valid_statuses)) {
+                error_log("Invalid status: {$status}");
+                return false;
+            }
+            
+            // 注文IDの検証
+            $order_id = intval($order_id);
+            if($order_id <= 0) {
+                error_log("Invalid order ID: {$order_id}");
+                return false;
+            }
+            
+            // 現在の状態を確認（オプション）
+            $check_query = "SELECT id FROM " . $this->table_name . " WHERE id = ?";
+            $check_stmt = $this->conn->prepare($check_query);
+            $check_stmt->bindParam(1, $order_id, PDO::PARAM_INT);
+            $check_stmt->execute();
+            
+            if($check_stmt->rowCount() == 0) {
+                error_log("Order not found: {$order_id}");
+                return false;
+            }
+            
+            // SQL実行
+            $query = "UPDATE " . $this->table_name . " SET status = ? WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            
+            if(!$stmt) {
+                error_log("Prepare failed: " . implode(", ", $this->conn->errorInfo()));
+                return false;
+            }
+            
+            $stmt->bindParam(1, $status, PDO::PARAM_STR);
+            $stmt->bindParam(2, $order_id, PDO::PARAM_INT);
+            
+            $result = $stmt->execute();
+            
+            if($result) {
+                $affected_rows = $stmt->rowCount();
+                error_log("Update successful - Order ID: {$order_id}, Status: {$status}, Affected rows: {$affected_rows}");
+                return ($affected_rows > 0);
+            } else {
+                $errorInfo = $stmt->errorInfo();
+                error_log("Execute failed: " . $errorInfo[2]);
+                return false;
+            }
+            
+        } catch(PDOException $e) {
+            error_log("updateStatus exception: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -306,7 +352,7 @@ class Order {
             // 注文アイテムを取得
             $query = "SELECT * FROM order_items WHERE order_id = ?";
             $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(1, $order_id);
+            $stmt->bindParam(1, $order_id, PDO::PARAM_INT);
             $stmt->execute();
             
             $product = new Product($this->conn);
@@ -332,6 +378,7 @@ class Order {
             if ($transaction_started) {
                 $this->conn->rollback();
             }
+            error_log("restoreStockOnCancel error: " . $e->getMessage());
             return false;
         }
     }
@@ -342,112 +389,152 @@ class Order {
      * @return int 注文数
      */
     public function count() {
-        $query = "SELECT COUNT(*) as total FROM " . $this->table_name;
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row['total'];
+        try {
+            $query = "SELECT COUNT(*) as total FROM " . $this->table_name;
+            $stmt = $this->conn->prepare($query);
+            
+            if($stmt && $stmt->execute()) {
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                return intval($row['total'] ?? 0);
+            }
+            
+            return 0;
+        } catch(PDOException $e) {
+            error_log("count error: " . $e->getMessage());
+            return 0;
+        }
     }
     
     /**
      * 最近の注文取得（管理パネル用）
      * 
      * @param int $limit 取得件数
-     * @return PDOStatement 結果セット
+     * @return PDOStatement|false 結果セット
      */
     public function getRecent($limit = 10) {
-        $query = "SELECT o.*, u.username 
-                FROM " . $this->table_name . " o 
-                LEFT JOIN users u ON o.user_id = u.id 
-                ORDER BY o.created DESC LIMIT ?";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $limit, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        return $stmt;
+        try {
+            $query = "SELECT o.*, u.username 
+                    FROM " . $this->table_name . " o 
+                    LEFT JOIN users u ON o.user_id = u.id 
+                    ORDER BY o.created DESC LIMIT ?";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $limit, PDO::PARAM_INT);
+            
+            if($stmt && $stmt->execute()) {
+                return $stmt;
+            }
+            
+            return false;
+        } catch(PDOException $e) {
+            error_log("getRecent error: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
      * ユーザーの注文履歴取得
      * 
      * @param int $user_id ユーザーID
-     * @return PDOStatement 結果セット
+     * @return PDOStatement|false 結果セット
      */
     public function getUserOrders($user_id) {
-        $query = "SELECT * FROM " . $this->table_name . " 
-                WHERE user_id = ? 
-                ORDER BY created DESC";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $user_id);
-        $stmt->execute();
-        
-        return $stmt;
+        try {
+            $query = "SELECT * FROM " . $this->table_name . " 
+                    WHERE user_id = ? 
+                    ORDER BY created DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $user_id, PDO::PARAM_INT);
+            
+            if($stmt && $stmt->execute()) {
+                return $stmt;
+            }
+            
+            return false;
+        } catch(PDOException $e) {
+            error_log("getUserOrders error: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
      * 管理者用の全注文取得
      * 
      * @param string $status 注文ステータス（オプション）
-     * @return PDOStatement 結果セット
+     * @return PDOStatement|false 結果セット
      */
     public function getAllOrders($status = null) {
-        if($status) {
-            $query = "SELECT o.*, u.username, u.email 
-                    FROM " . $this->table_name . " o 
-                    LEFT JOIN users u ON o.user_id = u.id 
-                    WHERE o.status = ? 
-                    ORDER BY o.created DESC";
+        try {
+            if($status) {
+                $query = "SELECT o.*, u.username, u.email 
+                        FROM " . $this->table_name . " o 
+                        LEFT JOIN users u ON o.user_id = u.id 
+                        WHERE o.status = ? 
+                        ORDER BY o.created DESC";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(1, $status, PDO::PARAM_STR);
+            } else {
+                $query = "SELECT o.*, u.username, u.email 
+                        FROM " . $this->table_name . " o 
+                        LEFT JOIN users u ON o.user_id = u.id 
+                        ORDER BY o.created DESC";
+                
+                $stmt = $this->conn->prepare($query);
+            }
             
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(1, $status);
-        } else {
-            $query = "SELECT o.*, u.username, u.email 
-                    FROM " . $this->table_name . " o 
-                    LEFT JOIN users u ON o.user_id = u.id 
-                    ORDER BY o.created DESC";
+            if($stmt && $stmt->execute()) {
+                return $stmt;
+            }
             
-            $stmt = $this->conn->prepare($query);
+            return false;
+        } catch(PDOException $e) {
+            error_log("getAllOrders error: " . $e->getMessage());
+            return false;
         }
-        
-        $stmt->execute();
-        return $stmt;
     }
     
     /**
      * 売上統計取得
      * 
      * @param string $period 期間（day, month, year）
-     * @return PDOStatement 結果セット
+     * @return PDOStatement|false 結果セット
      */
     public function getSalesStatistics($period = 'month') {
-        switch($period) {
-            case 'day':
-                $format = '%Y-%m-%d';
-                break;
-            case 'year':
-                $format = '%Y';
-                break;
-            default:
-                $format = '%Y-%m';
+        try {
+            switch($period) {
+                case 'day':
+                    $format = '%Y-%m-%d';
+                    break;
+                case 'year':
+                    $format = '%Y';
+                    break;
+                default:
+                    $format = '%Y-%m';
+            }
+            
+            $query = "SELECT DATE_FORMAT(created, ?) as period, 
+                             COUNT(*) as order_count, 
+                             SUM(total_amount) as total_sales
+                      FROM " . $this->table_name . " 
+                      WHERE status NOT IN ('cancelled')
+                      GROUP BY period 
+                      ORDER BY period DESC 
+                      LIMIT 12";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $format, PDO::PARAM_STR);
+            
+            if($stmt && $stmt->execute()) {
+                return $stmt;
+            }
+            
+            return false;
+        } catch(PDOException $e) {
+            error_log("getSalesStatistics error: " . $e->getMessage());
+            return false;
         }
-        
-        $query = "SELECT DATE_FORMAT(created, ?) as period, 
-                         COUNT(*) as order_count, 
-                         SUM(total_amount) as total_sales
-                  FROM " . $this->table_name . " 
-                  WHERE status NOT IN ('cancelled')
-                  GROUP BY period 
-                  ORDER BY period DESC 
-                  LIMIT 12";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $format);
-        $stmt->execute();
-        
-        return $stmt;
     }
 }
 ?>
