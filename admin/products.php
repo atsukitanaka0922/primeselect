@@ -33,6 +33,16 @@ if(isset($_POST['add_product'])) {
     $product->is_preorder = isset($_POST['is_preorder']) ? 1 : 0;
     $product->preorder_period = $_POST['preorder_period'];
     
+    // 在庫数の処理
+    if(empty($product->stock) || $product->stock == '') {
+        $product->stock = 0;
+    }
+    
+    // 受注生産商品の場合は在庫を強制的に0にする
+    if($product->is_preorder == 1) {
+        $product->stock = 0;
+    }
+    
     // 画像アップロード処理
     if(isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
@@ -229,6 +239,23 @@ document.getElementById('is_preorder').addEventListener('change', function() {
     } else {
         stockField.disabled = false;
         preorderPeriodField.required = false;
+    }
+});
+
+// フォーム送信時の処理
+document.querySelector('form').addEventListener('submit', function(e) {
+    // 空文字列を適切に処理
+    const stockField = document.getElementById('stock');
+    const isPreorder = document.getElementById('is_preorder').checked;
+    
+    // 在庫数が空の場合は0を設定
+    if(!stockField.value || stockField.value === '') {
+        stockField.value = 0;
+    }
+    
+    // 受注生産商品の場合は在庫を強制的に0にする
+    if(isPreorder) {
+        stockField.value = 0;
     }
 });
 </script>

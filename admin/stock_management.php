@@ -30,15 +30,58 @@ if(isset($_POST['update_stock'])) {
     $quantity_change = intval($_POST['quantity_change']);
     $reason = $_POST['reason'];
     
-    if($product->updateStock($product_id, $variation_id, $quantity_change, $reason)) {
-        $success_message = "在庫を更新しました。";
+    // 現在の在庫を確認
+    $current_stock = $product->checkStock($product_id, $variation_id)['stock'];
+    $new_stock = $current_stock + $quantity_change;
+    
+    if($new_stock < 0) {
+        $error_message = "在庫が不足します。現在の在庫: " . $current_stock . "個";
     } else {
-        $error_message = "在庫の更新に失敗しました。";
+        if($product->updateStock($product_id, $variation_id, $quantity_change, $reason)) {
+            $success_message = "在庫を更新しました。新しい在庫: " . $new_stock . "個";
+        } else {
+            $error_message = "在庫の更新に失敗しました。";
+        }
     }
 }
 
 include_once "templates/header.php";
 ?>
+
+<style>
+/* 在庫管理用スタイル */
+.stock-low {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.stock-medium {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.stock-high {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.stock-out {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+#stockModal .form-group {
+    margin-bottom: 1rem;
+}
+
+#stockModal .alert {
+    margin-top: 1rem;
+}
+</style>
 
 <div class="container-fluid">
     <div class="row">
@@ -223,9 +266,17 @@ include_once "templates/header.php";
                         <p id="modal-variation-name" class="form-control-plaintext"></p>
                     </div>
                     <div class="form-group">
+                        <label for="current_stock">現在の在庫数</label>
+                        <input type="text" class="form-control" id="current_stock" readonly>
+                    </div>
+                    <div class="form-group">
                         <label for="quantity_change">在庫変更数 <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" id="quantity_change" name="quantity_change" required>
                         <small class="form-text text-muted">正数で入庫、負数で出庫</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="new_stock">変更後の在庫数</label>
+                        <input type="text" class="form-control" id="new_stock" readonly>
                     </div>
                     <div class="form-group">
                         <label for="reason">理由 <span class="text-danger">*</span></label>
@@ -242,6 +293,7 @@ include_once "templates/header.php";
 </div>
 
 <script>
+// モーダルが表示される前のイベント
 $('#stockModal').on('show.bs.modal', function (event) {
     var button = $(event.relatedTarget);
     var productId = button.data('product-id');
@@ -254,6 +306,76 @@ $('#stockModal').on('show.bs.modal', function (event) {
     modal.find('#modal-variation-id').val(variationId);
     modal.find('#modal-product-name').text(productName);
     modal.find('#modal-variation-name').text(variationName || '-');
+    
+    // 現在の在庫数を取得して表示
+    var currentStock = 0;
+    var stockCell = button.closest('tr').find('td:nth-child(3)').text();
+    if(stockCell) {
+        // "12個" → "12" に変換
+        var match = stockCell.match(/(\d+)/);
+        if(match) {
+            currentStock = parseInt(match[1]);
+        }
+    }
+    
+    modal.find('#current_stock').val(currentStock);
+    modal.find('#quantity_change').val('').removeClass('is-invalid');
+    modal.find('#new_stock').val(currentStock).removeClass('is-invalid');
+    
+    // 在庫変更数入力時のイベントリスナーをクリア
+    $('#quantity_change').off('input.stock');
+    
+    // 在庫変更数入力時に新在庫数を計算
+    $('#quantity_change').on('input.stock', function() {
+        var change = parseInt($(this).val()) || 0;
+        var newStock = currentStock + change;
+        $('#new_stock').val(newStock);
+        
+        // 在庫が負の値になる場合は警告
+        if(newStock < 0) {
+            $('#new_stock').addClass('is-invalid');
+            $(this).addClass('is-invalid');
+        } else {
+            $('#new_stock').removeClass('is-invalid');
+            $(this).removeClass('is-invalid');
+        }
+    });
+});
+
+// モーダルがクローズされた時のクリーンアップ
+$('#stockModal').on('hidden.bs.modal', function () {
+    $(this).find('form')[0].reset();
+    $(this).find('.is-invalid').removeClass('is-invalid');
+});
+
+// フォーム送信時のバリデーション
+$('#stockModal').on('submit', 'form', function(e) {
+    var newStock = parseInt($('#new_stock').val());
+    var change = parseInt($('#quantity_change').val());
+    
+    // 変更数が入力されていない場合
+    if(isNaN(change) || change === 0) {
+        e.preventDefault();
+        alert('在庫変更数を入力してください。');
+        return false;
+    }
+    
+    // 在庫が負の値になる場合
+    if(newStock < 0) {
+        e.preventDefault();
+        alert('在庫が負の値になります。在庫変更数を確認してください。');
+        return false;
+    }
+    
+    // 確認メッセージ
+    var message = '在庫を ' + change + ' 変更しますか？\n';
+    message += '現在在庫: ' + $('#current_stock').val() + '個\n';
+    message += '変更後在庫: ' + newStock + '個';
+    
+    if(!confirm(message)) {
+        e.preventDefault();
+        return false;
+    }
 });
 </script>
 

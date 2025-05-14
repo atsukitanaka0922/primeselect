@@ -20,8 +20,11 @@ class Product {
     public $price;
     public $category_id;
     public $image;
+    public $stock;
     public $created;
     public $category_name;
+    public $is_preorder;
+    public $preorder_period;
     
     /**
      * コンストラクタ
@@ -33,12 +36,183 @@ class Product {
     }
     
     /**
+     * 新しい商品を作成
+     * 
+     * @return boolean 作成成功ならtrue
+     */
+    public function create() {
+        $query = "INSERT INTO " . $this->table_name . " 
+                SET name = :name, 
+                    description = :description, 
+                    price = :price, 
+                    category_id = :category_id, 
+                    image = :image,
+                    stock = :stock,
+                    is_preorder = :is_preorder,
+                    preorder_period = :preorder_period";
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // サニタイズ
+        $this->name = htmlspecialchars(strip_tags($this->name));
+        $this->description = htmlspecialchars(strip_tags($this->description));
+        $this->price = htmlspecialchars(strip_tags($this->price));
+        $this->category_id = htmlspecialchars(strip_tags($this->category_id));
+        $this->image = htmlspecialchars(strip_tags($this->image));
+        $this->stock = htmlspecialchars(strip_tags($this->stock));
+        $this->is_preorder = htmlspecialchars(strip_tags($this->is_preorder));
+        $this->preorder_period = htmlspecialchars(strip_tags($this->preorder_period));
+        
+        // 受注生産商品の場合は在庫を0にする
+        if($this->is_preorder == 1) {
+            $this->stock = 0;
+        }
+        
+        // 空文字列の場合はNULLに変換
+        if(empty($this->image)) {
+            $this->image = null;
+        }
+        if(empty($this->category_id)) {
+            $this->category_id = null;
+        }
+        if(empty($this->preorder_period)) {
+            $this->preorder_period = null;
+        }
+        
+        // バインド
+        $stmt->bindParam(":name", $this->name);
+        $stmt->bindParam(":description", $this->description);
+        $stmt->bindParam(":price", $this->price);
+        $stmt->bindParam(":category_id", $this->category_id);
+        $stmt->bindParam(":image", $this->image);
+        $stmt->bindParam(":stock", $this->stock);
+        $stmt->bindParam(":is_preorder", $this->is_preorder);
+        $stmt->bindParam(":preorder_period", $this->preorder_period);
+        
+        if($stmt->execute()) {
+            $product_id = $this->conn->lastInsertId();
+            
+            // メイン画像を追加（画像がアップロードされた場合のみ）
+            if($this->image) {
+                $query_image = "INSERT INTO product_images SET product_id = ?, image_file = ?, is_main = 1";
+                $stmt_image = $this->conn->prepare($query_image);
+                $stmt_image->bindParam(1, $product_id);
+                $stmt_image->bindParam(2, $this->image);
+                $stmt_image->execute();
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 商品を削除
+     * 
+     * @param int $id 削除する商品ID
+     * @return boolean 削除成功ならtrue
+     */
+    public function delete($id) {
+        // 商品画像も削除するためにトランザクションを使用
+        $this->conn->beginTransaction();
+        
+        try {
+            // まず商品画像を削除
+            $query = "DELETE FROM product_images WHERE product_id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $id);
+            $stmt->execute();
+            
+            // 商品バリエーションを削除
+            $query = "DELETE FROM product_variations WHERE product_id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $id);
+            $stmt->execute();
+            
+            // 在庫ログを削除
+            $query = "DELETE FROM product_stock_logs WHERE product_id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $id);
+            $stmt->execute();
+            
+            // 最後に商品本体を削除
+            $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $id);
+            $stmt->execute();
+            
+            $this->conn->commit();
+            return true;
+        } catch(Exception $e) {
+            $this->conn->rollback();
+            return false;
+        }
+    }
+    
+    /**
+     * 商品を更新
+     * 
+     * @return boolean 更新成功ならtrue
+     */
+    public function update() {
+        $query = "UPDATE " . $this->table_name . " 
+                SET name = :name, 
+                    description = :description, 
+                    price = :price, 
+                    category_id = :category_id, 
+                    stock = :stock,
+                    is_preorder = :is_preorder,
+                    preorder_period = :preorder_period";
+        
+        // 画像が更新される場合
+        if(!empty($this->image)) {
+            $query .= ", image = :image";
+        }
+        
+        $query .= " WHERE id = :id";
+        
+        $stmt = $this->conn->prepare($query);
+        
+        // サニタイズ
+        $this->name = htmlspecialchars(strip_tags($this->name));
+        $this->description = htmlspecialchars(strip_tags($this->description));
+        $this->price = htmlspecialchars(strip_tags($this->price));
+        $this->category_id = htmlspecialchars(strip_tags($this->category_id));
+        $this->stock = htmlspecialchars(strip_tags($this->stock));
+        $this->is_preorder = htmlspecialchars(strip_tags($this->is_preorder));
+        $this->preorder_period = htmlspecialchars(strip_tags($this->preorder_period));
+        $this->id = htmlspecialchars(strip_tags($this->id));
+        
+        // バインド
+        $stmt->bindParam(":name", $this->name);
+        $stmt->bindParam(":description", $this->description);
+        $stmt->bindParam(":price", $this->price);
+        $stmt->bindParam(":category_id", $this->category_id);
+        $stmt->bindParam(":stock", $this->stock);
+        $stmt->bindParam(":is_preorder", $this->is_preorder);
+        $stmt->bindParam(":preorder_period", $this->preorder_period);
+        $stmt->bindParam(":id", $this->id);
+        
+        if(!empty($this->image)) {
+            $this->image = htmlspecialchars(strip_tags($this->image));
+            $stmt->bindParam(":image", $this->image);
+        }
+        
+        if($stmt->execute()) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * 全商品取得
      * 
      * @return PDOStatement 商品一覧の結果セット
      */
     public function read() {
-        $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.created, c.name as category_name 
+        $query = "SELECT p.id, p.name, p.description, p.price, p.image, p.stock, p.created, c.name as category_name 
                 FROM " . $this->table_name . " p 
                 LEFT JOIN categories c ON p.category_id = c.id 
                 ORDER BY p.created DESC";
@@ -53,7 +227,7 @@ class Product {
      * @return boolean 取得成功ならtrue
      */
     public function readOne() {
-        $query = "SELECT p.id, p.name, p.description, p.price, p.category_id, p.image, p.created, c.name as category_name 
+        $query = "SELECT p.id, p.name, p.description, p.price, p.category_id, p.image, p.stock, p.created, c.name as category_name 
                 FROM " . $this->table_name . " p 
                 LEFT JOIN categories c ON p.category_id = c.id 
                 WHERE p.id = ? LIMIT 0,1";
@@ -69,6 +243,7 @@ class Product {
             $this->description = $row['description'];
             $this->category_id = $row['category_id'] ?? null;
             $this->image = $row['image'];
+            $this->stock = $row['stock'];
             $this->category_name = $row['category_name'] ?? '未分類';
             return true;
         }
