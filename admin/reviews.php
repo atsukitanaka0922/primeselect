@@ -1,6 +1,9 @@
 <?php
 /**
- * admin/reviews.php - 修正版
+ * レビュー管理ページ（管理者用）- 修正版
+ * 
+ * @author Prime Select Team
+ * @version 1.1
  */
 
 session_start();
@@ -27,13 +30,10 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     $stmt->bindParam(1, $review_id);
     
     if($stmt->execute()) {
-        $_SESSION['success_message'] = "レビューを削除しました。";
+        $success_message = "レビューを削除しました。";
     } else {
-        $_SESSION['error_message'] = "レビューの削除に失敗しました。";
+        $error_message = "レビューの削除に失敗しました。";
     }
-    
-    header('Location: reviews.php');
-    exit();
 }
 
 include_once "templates/header.php";
@@ -47,22 +47,12 @@ include_once "templates/header.php";
         <div class="col-md-10">
             <h2 class="mt-4">レビュー管理</h2>
             
-            <?php if(isset($_SESSION['success_message'])): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
+            <?php if(isset($success_message)): ?>
+            <div class="alert alert-success"><?php echo $success_message; ?></div>
             <?php endif; ?>
             
-            <?php if(isset($_SESSION['error_message'])): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
+            <?php if(isset($error_message)): ?>
+            <div class="alert alert-danger"><?php echo $error_message; ?></div>
             <?php endif; ?>
             
             <!-- レビュー統計 -->
@@ -162,16 +152,21 @@ include_once "templates/header.php";
                                 $stmt->execute();
                                 
                                 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    // データの安全化
+                                    $comment = htmlspecialchars($row['comment']);
+                                    $username = htmlspecialchars($row['username']);
+                                    $product_name = htmlspecialchars($row['product_name']);
+                                    $date = date('Y-m-d H:i', strtotime($row['created']));
                                     ?>
                                     <tr>
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <img src="../assets/images/<?php echo $row['image']; ?>" 
-                                                     alt="<?php echo htmlspecialchars($row['product_name']); ?>" width="40" class="mr-2">
-                                                <span><?php echo htmlspecialchars($row['product_name']); ?></span>
+                                                     alt="<?php echo $product_name; ?>" width="40" class="mr-2">
+                                                <span><?php echo $product_name; ?></span>
                                             </div>
                                         </td>
-                                        <td><?php echo htmlspecialchars($row['username']); ?></td>
+                                        <td><?php echo $username; ?></td>
                                         <td>
                                             <?php for($i = 1; $i <= 5; $i++): ?>
                                                 <?php if($i <= $row['rating']): ?>
@@ -184,20 +179,21 @@ include_once "templates/header.php";
                                         </td>
                                         <td>
                                             <div style="max-width: 200px;">
-                                                <?php echo htmlspecialchars(substr($row['comment'], 0, 100)); ?>
-                                                <?php if(strlen($row['comment']) > 100): ?>...<?php endif; ?>
+                                                <?php echo substr($comment, 0, 100); ?>
+                                                <?php if(strlen($comment) > 100): ?>...<?php endif; ?>
                                             </div>
                                         </td>
                                         <td><?php echo date('Y-m-d', strtotime($row['created'])); ?></td>
                                         <td>
-                                            <button class="btn btn-sm btn-info review-detail-btn" 
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-info review-detail-btn" 
                                                     data-toggle="modal" 
                                                     data-target="#reviewModal" 
                                                     data-rating="<?php echo $row['rating']; ?>"
-                                                    data-comment="<?php echo htmlspecialchars($row['comment']); ?>"
-                                                    data-username="<?php echo htmlspecialchars($row['username']); ?>"
-                                                    data-product="<?php echo htmlspecialchars($row['product_name']); ?>"
-                                                    data-date="<?php echo date('Y-m-d H:i', strtotime($row['created'])); ?>">
+                                                    data-comment="<?php echo $comment; ?>"
+                                                    data-username="<?php echo $username; ?>"
+                                                    data-product="<?php echo $product_name; ?>"
+                                                    data-date="<?php echo $date; ?>">
                                                 詳細
                                             </button>
                                             <a href="reviews.php?delete=1&id=<?php echo $row['id']; ?>" 
@@ -231,21 +227,21 @@ include_once "templates/header.php";
                 <div class="row">
                     <div class="col-md-6">
                         <strong>商品名:</strong>
-                        <p id="modal-product" class="text-muted"></p>
+                        <p id="modal-product" class="text-muted mb-3"></p>
                     </div>
                     <div class="col-md-6">
                         <strong>投稿者:</strong>
-                        <p id="modal-username" class="text-muted"></p>
+                        <p id="modal-username" class="text-muted mb-3"></p>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6">
                         <strong>評価:</strong>
-                        <div id="modal-rating"></div>
+                        <div id="modal-rating" class="mb-3"></div>
                     </div>
                     <div class="col-md-6">
                         <strong>投稿日:</strong>
-                        <p id="modal-date" class="text-muted"></p>
+                        <p id="modal-date" class="text-muted mb-3"></p>
                     </div>
                 </div>
                 <div class="form-group">
@@ -260,43 +256,89 @@ include_once "templates/header.php";
     </div>
 </div>
 
+<!-- jQueryと Bootstrap のJavaScript -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
 $(document).ready(function() {
-    // レビュー詳細モーダルの修正
+    console.log('レビュー管理ページが読み込まれました');
+    console.log('レビュー詳細ボタンの数:', $('.review-detail-btn').length);
+    
+    // レビュー詳細モーダルのイベント処理
     $('#reviewModal').on('show.bs.modal', function (event) {
-        var button = $(event.relatedTarget);
-        var rating = parseInt(button.data('rating'));
-        var comment = button.data('comment');
-        var username = button.data('username');
-        var product = button.data('product');
-        var date = button.data('date');
+        console.log('レビュー詳細モーダルが開かれました');
         
-        console.log('Review modal data:', {
+        var button = $(event.relatedTarget);
+        var rating = button.attr('data-rating');
+        var comment = button.attr('data-comment');
+        var username = button.attr('data-username');
+        var product = button.attr('data-product');
+        var date = button.attr('data-date');
+        
+        console.log('取得したレビューデータ:', {
             rating: rating,
-            comment: comment,
+            comment: comment ? comment.substring(0, 50) + '...' : 'なし',
             username: username,
             product: product,
             date: date
         });
         
         var modal = $(this);
-        modal.find('#modal-product').text(product || '情報なし');
-        modal.find('#modal-username').text(username || '情報なし');
+        modal.find('#modal-product').text(product || '商品名取得エラー');
+        modal.find('#modal-username').text(username || 'ユーザー名取得エラー');
         modal.find('#modal-comment').text(comment || 'コメントなし');
-        modal.find('#modal-date').text(date || '情報なし');
+        modal.find('#modal-date').text(date || '日付取得エラー');
         
         // 星を表示
         var stars = '';
+        var ratingNum = parseInt(rating) || 0;
         for(var i = 1; i <= 5; i++) {
-            if(i <= rating) {
+            if(i <= ratingNum) {
                 stars += '<i class="fas fa-star text-warning"></i>';
             } else {
                 stars += '<i class="far fa-star text-warning"></i>';
             }
         }
-        stars += ' (' + rating + ')';
+        stars += ' <span class="ml-1">(' + ratingNum + '/5)</span>';
         modal.find('#modal-rating').html(stars);
+        
+        console.log('モーダルに設定された値を確認:', {
+            product: modal.find('#modal-product').text(),
+            username: modal.find('#modal-username').text(),
+            rating: modal.find('#modal-rating').html(),
+            comment: modal.find('#modal-comment').text().substring(0, 50) + '...'
+        });
     });
+    
+    // モーダルが完全に表示された後のイベント
+    $('#reviewModal').on('shown.bs.modal', function (event) {
+        console.log('レビューモーダルの表示が完了しました');
+    });
+    
+    // レビュー詳細ボタンクリック時のデバッグ
+    $('.review-detail-btn').on('click', function(e) {
+        console.log('レビュー詳細ボタンがクリックされました');
+        console.log('ボタンのdata属性:', this.dataset);
+        console.log('モーダルターゲット:', $(this).attr('data-target'));
+    });
+    
+    // ページ読み込み後のチェック
+    setTimeout(function() {
+        console.log('Bootstrap modal関数の存在確認:', typeof $('#reviewModal').modal);
+        console.log('モーダル要素の存在確認:', $('#reviewModal').length);
+        
+        // 各ボタンのdata属性をチェック
+        $('.review-detail-btn').each(function(index) {
+            console.log('ボタン ' + (index + 1) + ' のdata属性:', {
+                rating: $(this).attr('data-rating'),
+                hasComment: !!$(this).attr('data-comment'),
+                hasUsername: !!$(this).attr('data-username'),
+                hasProduct: !!$(this).attr('data-product'),
+                hasDate: !!$(this).attr('data-date')
+            });
+        });
+    }, 1000);
 });
 </script>
 

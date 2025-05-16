@@ -1,4 +1,11 @@
 <?php
+/**
+ * 管理者用ヘッダーテンプレート - 修正版
+ * 
+ * @author Prime Select Team
+ * @version 1.1
+ */
+
 // 管理者権限チェック（すべての管理者ページで必要）
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
@@ -23,24 +30,12 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
         color: white;
         padding: 10px 0;
     }
-    .is-invalid {
-        border-color: #dc3545 !important;
+    .modal-content {
+        border-radius: 0.375rem;
     }
-    .stock-low {
-        color: #dc3545;
-        font-weight: bold;
-    }
-    .stock-medium {
-        color: #ffc107;
-        font-weight: bold;
-    }
-    .stock-high {
-        color: #28a745;
-        font-weight: bold;
-    }
-    .stock-out {
-        color: #6c757d;
-        font-style: italic;
+    .form-control-plaintext {
+        border: none;
+        padding-left: 0;
     }
     </style>
 </head>

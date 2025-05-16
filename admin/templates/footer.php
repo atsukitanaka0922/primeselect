@@ -2,21 +2,24 @@
 /**
  * 管理者用フッターテンプレート - 修正版
  * 
- * JavaScriptの読み込みを削除し、各ページで個別に読み込む方式に変更
+ * @author Prime Select Team
+ * @version 1.1
  */
 ?>
-</main>
-    <!-- フッター -->
-    <footer class="bg-dark text-white mt-5 py-4">
+    </main>
+    
+    <!-- フッター（シンプル） -->
+    <footer class="bg-dark text-white mt-5 py-3">
         <div class="container-fluid">
-            <div class="row">
-                <div class="col-12 text-center">
-                    <p class="mb-0">&copy; <?php echo date('Y'); ?> Prime Select 管理パネル. All rights reserved.</p>
-                </div>
+            <div class="text-center">
+                <p class="mb-0">&copy; <?php echo date('Y'); ?> Prime Select 管理パネル. All rights reserved.</p>
             </div>
         </div>
     </footer>
-    
-    <!-- JavaScriptの読み込みは各ページで個別に行う -->
+
+    <!-- 
+    注意: JavaScriptライブラリは各ページで個別に読み込む
+    重複読み込みを避けるため、ここでは読み込まない
+    -->
 </body>
 </html>

@@ -1,9 +1,9 @@
 <?php
 /**
- * ユーザー管理ページ（管理者用）
+ * ユーザー管理ページ（管理者用）- 修正版
  * 
  * @author Prime Select Team
- * @version 1.0
+ * @version 1.1
  */
 
 session_start();
@@ -23,35 +23,22 @@ $user = new User($db);
 
 // 管理者権限の更新処理
 if(isset($_POST['update_admin_status'])) {
-    $user_id = intval($_POST['user_id']);
+    $user_id = $_POST['user_id'];
     $is_admin = isset($_POST['is_admin']) ? 1 : 0;
     
-    // 自分自身の権限を変更しようとした場合の確認
-    if($user_id == $_SESSION['user_id'] && $is_admin == 0) {
-        $error_message = "自分自身の管理者権限を削除することはできません。";
+    if($user->updateAdminStatus($user_id, $is_admin)) {
+        $success_message = "ユーザーの権限を更新しました。";
     } else {
-        try {
-            if($user->updateAdminStatus($user_id, $is_admin)) {
-                $success_message = "ユーザーの権限を更新しました。";
-                header("Location: users.php");
-                exit();
-            } else {
-                $error_message = "権限の更新に失敗しました。";
-            }
-        } catch(Exception $e) {
-            $error_message = "権限の更新中にエラーが発生しました: " . $e->getMessage();
-        }
+        $error_message = "権限の更新に失敗しました。";
     }
 }
 
 // ユーザー削除処理
 if(isset($_GET['delete']) && isset($_GET['id'])) {
-    $user_id = intval($_GET['id']);
+    $user_id = $_GET['id'];
     
     if($user->delete($user_id)) {
         $success_message = "ユーザーを削除しました。";
-        header("Location: users.php");
-        exit();
     } else {
         $error_message = "ユーザーの削除に失敗しました。管理者は削除できません。";
     }
@@ -132,7 +119,9 @@ include_once "templates/header.php";
                                         </td>
                                         <td><?php echo date('Y-m-d', strtotime($row['created'])); ?></td>
                                         <td>
-                                            <button class="btn btn-sm btn-primary" data-toggle="modal" 
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-primary permission-btn" 
+                                                    data-toggle="modal" 
                                                     data-target="#permissionModal" 
                                                     data-user-id="<?php echo $row['id']; ?>"
                                                     data-username="<?php echo htmlspecialchars($row['username']); ?>"
@@ -162,7 +151,7 @@ include_once "templates/header.php";
 <div class="modal fade" id="permissionModal" tabindex="-1" role="dialog" aria-labelledby="permissionModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form method="post">
+            <form method="post" action="users.php">
                 <div class="modal-header">
                     <h5 class="modal-title" id="permissionModalLabel">ユーザー権限変更</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -173,13 +162,17 @@ include_once "templates/header.php";
                     <input type="hidden" name="user_id" id="modal-user-id">
                     <div class="form-group">
                         <label>ユーザー名</label>
-                        <p id="modal-username" class="form-control-plaintext"></p>
+                        <p id="modal-username" class="form-control-plaintext font-weight-bold"></p>
+                    </div>
+                    <div class="form-group">
+                        <label>現在の権限</label>
+                        <p id="modal-current-role" class="form-control-plaintext"></p>
                     </div>
                     <div class="form-group">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="modal-is-admin" name="is_admin">
                             <label class="form-check-label" for="modal-is-admin">
-                                管理者権限を付与する
+                                <strong>管理者権限を付与する</strong>
                             </label>
                         </div>
                         <small class="form-text text-muted">管理者は全ての管理機能にアクセスできます。</small>
@@ -187,27 +180,95 @@ include_once "templates/header.php";
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">キャンセル</button>
-                    <button type="submit" name="update_admin_status" class="btn btn-primary">更新</button>
+                    <button type="submit" name="update_admin_status" class="btn btn-primary">権限を更新</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- jQueryと Bootstrap のJavaScript -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
 $(document).ready(function() {
-    // 権限変更モーダル
+    console.log('ユーザー管理ページが読み込まれました');
+    console.log('権限変更ボタンの数:', $('.permission-btn').length);
+    
+    // 権限変更モーダルのイベント処理
     $('#permissionModal').on('show.bs.modal', function (event) {
+        console.log('権限変更モーダルが開かれました');
+        
         var button = $(event.relatedTarget);
-        var userId = button.data('user-id');
-        var username = button.data('username');
-        var isAdmin = button.data('is-admin');
+        var userId = button.attr('data-user-id');
+        var username = button.attr('data-username');
+        var isAdmin = button.attr('data-is-admin');
+        
+        console.log('取得したデータ:', {
+            userId: userId,
+            username: username,
+            isAdmin: isAdmin
+        });
         
         var modal = $(this);
         modal.find('#modal-user-id').val(userId);
-        modal.find('#modal-username').text(username);
-        modal.find('#modal-is-admin').prop('checked', isAdmin == 1 || isAdmin == '1');
+        modal.find('#modal-username').text(username || 'ユーザー名取得エラー');
+        
+        // 現在の権限を表示
+        var currentRole = (isAdmin == '1') ? '管理者' : '一般ユーザー';
+        modal.find('#modal-current-role').text(currentRole);
+        
+        // チェックボックスの状態を設定
+        modal.find('#modal-is-admin').prop('checked', isAdmin == '1');
+        
+        console.log('モーダルに設定された値:', {
+            userId: modal.find('#modal-user-id').val(),
+            username: modal.find('#modal-username').text(),
+            isAdmin: modal.find('#modal-is-admin').prop('checked')
+        });
     });
+    
+    // モーダルが完全に表示された後のイベント
+    $('#permissionModal').on('shown.bs.modal', function (event) {
+        console.log('モーダルの表示が完了しました');
+    });
+    
+    // フォーム送信時の確認
+    $('#permissionModal form').on('submit', function(e) {
+        var userId = $('#modal-user-id').val();
+        var username = $('#modal-username').text();
+        var isAdmin = $('#modal-is-admin').prop('checked');
+        var currentRole = $('#modal-current-role').text();
+        var newRole = isAdmin ? '管理者' : '一般ユーザー';
+        
+        if(currentRole === newRole) {
+            e.preventDefault();
+            alert('権限に変更がありません。');
+            return false;
+        }
+        
+        var message = 'ユーザー「' + username + '」の権限を変更しますか？\n\n';
+        message += '現在の権限: ' + currentRole + '\n';
+        message += '新しい権限: ' + newRole;
+        
+        if(!confirm(message)) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    
+    // ボタンクリック時のデバッグ
+    $('.permission-btn').on('click', function() {
+        console.log('権限変更ボタンがクリックされました');
+        console.log('ボタンのdata属性:', this.dataset);
+    });
+    
+    // ページ読み込み後のチェック
+    setTimeout(function() {
+        console.log('Bootstrap modal:', $('#permissionModal').modal);
+        console.log('モーダル要素存在チェック:', $('#permissionModal').length);
+    }, 1000);
 });
 </script>
 
