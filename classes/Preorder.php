@@ -1,12 +1,12 @@
 <?php
 /**
- * 予約注文クラス（修正版）
+ * 予約注文クラス - バグ修正版
  * 
  * 受注生産商品の予約注文を管理するクラス
- * updateStatusメソッドにデバッグログとエラーハンドリングを追加
+ * getUserPreorders メソッドのクエリ修正
  * 
  * @author Prime Select Team
- * @version 1.1
+ * @version 1.2
  */
 class Preorder {
     // データベース接続とテーブル名
@@ -67,14 +67,18 @@ class Preorder {
     }
     
     /**
-     * ユーザーの予約注文一覧取得
+     * ユーザーの予約注文一覧取得（修正版）
      * 
      * @param int $user_id ユーザーID
      * @return PDOStatement 結果セット
      */
     public function getUserPreorders($user_id) {
-        $query = "SELECT p.*, pr.name as product_name, pr.image, 
-                         pv.variation_name, pv.variation_value 
+        // クエリを修正：product_nameカラム名を正しく設定
+        $query = "SELECT p.*, 
+                         pr.name as product_name, 
+                         pr.image, 
+                         pv.variation_name, 
+                         pv.variation_value 
                 FROM " . $this->table_name . " p 
                 LEFT JOIN products pr ON p.product_id = pr.id 
                 LEFT JOIN product_variations pv ON p.variation_id = pv.id 
@@ -136,8 +140,13 @@ class Preorder {
      * @return array|false 予約注文詳細
      */
     public function read($preorder_id) {
-        $query = "SELECT p.*, pr.name as product_name, pr.image, pr.price,
-                         pv.variation_name, pv.variation_value, pv.price_adjustment,
+        $query = "SELECT p.*, 
+                         pr.name as product_name, 
+                         pr.image, 
+                         pr.price,
+                         pv.variation_name, 
+                         pv.variation_value, 
+                         pv.price_adjustment,
                          u.username as customer_name
                 FROM " . $this->table_name . " p 
                 LEFT JOIN products pr ON p.product_id = pr.id 
@@ -177,7 +186,9 @@ class Preorder {
      * @return PDOStatement 結果セット
      */
     public function getRecent($limit = 10) {
-        $query = "SELECT p.*, pr.name as product_name, u.username 
+        $query = "SELECT p.*, 
+                         pr.name as product_name, 
+                         u.username 
                 FROM " . $this->table_name . " p 
                 LEFT JOIN products pr ON p.product_id = pr.id 
                 LEFT JOIN users u ON p.user_id = u.id 
@@ -196,8 +207,12 @@ class Preorder {
      * @return PDOStatement 結果セット
      */
     public function readAll() {
-        $query = "SELECT p.*, pr.name as product_name, pr.image, u.username,
-                         pv.variation_name, pv.variation_value 
+        $query = "SELECT p.*, 
+                         pr.name as product_name, 
+                         pr.image, 
+                         u.username,
+                         pv.variation_name, 
+                         pv.variation_value 
                 FROM " . $this->table_name . " p 
                 LEFT JOIN products pr ON p.product_id = pr.id 
                 LEFT JOIN product_variations pv ON p.variation_id = pv.id 

@@ -1,12 +1,12 @@
 <?php
 /**
- * 注文クラス - 受注生産対応修正版
+ * 注文クラス - Productクラス読み込み修正版
  * 
  * 注文情報の管理と操作を行うクラス
- * 受注生産商品の予約注文作成機能を追加
+ * Productクラスの確実な読み込みを追加
  * 
  * @author Prime Select Team
- * @version 1.2
+ * @version 1.4
  */
 class Order {
     // データベース接続とテーブル名
@@ -32,12 +32,19 @@ class Order {
     }
     
     /**
-     * 注文作成（受注生産対応・修正版）
+     * 注文作成
      * 
      * @return int|false 作成成功時は注文ID、失敗時はfalse
      */
     public function create() {
-        // カートから合計金額を計算
+        // 必要なクラスの確実な読み込み
+        if (!class_exists('Cart')) {
+            include_once "classes/Cart.php";
+        }
+        if (!class_exists('Product')) {
+            include_once "classes/Product.php";
+        }
+        
         $cart = new Cart($this->conn);
         $product = new Product($this->conn);
         $items = $cart->getItems($this->user_id);
@@ -165,8 +172,7 @@ class Order {
                       variation_id = ?, 
                       quantity = ?, 
                       estimated_delivery = ?, 
-                      status = 'pending',
-                      order_id = ?";
+                      status = 'pending'";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $this->user_id);
@@ -174,7 +180,6 @@ class Order {
         $stmt->bindParam(3, $item['variation_id']);
         $stmt->bindParam(4, $item['quantity']);
         $stmt->bindParam(5, $estimated_delivery);
-        $stmt->bindParam(6, $order_id);
         
         return $stmt->execute();
     }
@@ -283,8 +288,6 @@ class Order {
         
         return $stmt->execute();
     }
-    
-    // 以下、既存メソッドは変更なし（read, getOrderItems, updateStatus等）
     
     /**
      * 注文情報取得
@@ -436,12 +439,26 @@ class Order {
     }
     
     /**
-     * 注文キャンセル時の在庫復元
+     * 注文キャンセル時の在庫復元（修正版）
      * 
      * @param int $order_id 注文ID
      * @return boolean 復元成功ならtrue
      */
     public function restoreStockOnCancel($order_id) {
+        // 確実にProductクラスを読み込み
+        if (!class_exists('Product')) {
+            // 管理者画面からの場合のパス調整
+            if (file_exists('../classes/Product.php')) {
+                include_once '../classes/Product.php';
+            } elseif (file_exists('classes/Product.php')) {
+                include_once 'classes/Product.php';
+            } else {
+                // 絶対パスでの読み込み（最後の手段）
+                $base_path = dirname(__DIR__);
+                include_once $base_path . '/classes/Product.php';
+            }
+        }
+        
         $transaction_started = false;
         if (!$this->conn->inTransaction()) {
             $this->conn->beginTransaction();
@@ -466,9 +483,11 @@ class Order {
                     $this->updateStockWithoutTransaction($product, $item['product_id'], $item['variation_id'], $item['quantity'], '注文キャンセルによる返在庫 #' . $order_id);
                 } else {
                     // 受注生産商品の場合は予約注文をキャンセル
-                    $cancel_preorder_query = "UPDATE preorders SET status = 'cancelled' WHERE order_id = ?";
+                    $cancel_preorder_query = "UPDATE preorders SET status = 'cancelled' 
+                                            WHERE product_id = ? AND user_id = ? AND status != 'cancelled'";
                     $cancel_stmt = $this->conn->prepare($cancel_preorder_query);
-                    $cancel_stmt->bindParam(1, $order_id);
+                    $cancel_stmt->bindParam(1, $item['product_id']);
+                    $cancel_stmt->bindParam(2, $this->user_id);
                     $cancel_stmt->execute();
                 }
             }
@@ -484,6 +503,8 @@ class Order {
             if ($transaction_started) {
                 $this->conn->rollback();
             }
+            // エラーログに記録
+            error_log("Order cancel error: " . $e->getMessage());
             return false;
         }
     }

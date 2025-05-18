@@ -1,14 +1,17 @@
 <?php
 /**
- * 予約注文管理ページ（管理者用）
+ * 予約注文管理ページ（管理者用）- 修正版
+ * 
+ * 受注生産バグ修正に対応した管理画面
  * 
  * @author Prime Select Team
- * @version 1.0
+ * @version 1.1
  */
 
 session_start();
 include_once "../config/database.php";
 include_once "../classes/Preorder.php";
+include_once "../classes/Product.php";
 
 // 管理者権限チェック
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
@@ -20,36 +23,55 @@ $database = new Database();
 $db = $database->getConnection();
 
 $preorder = new Preorder($db);
+$product = new Product($db);
 
-// ステータス更新処理
+// デバッグ情報を追加
+$debug_info = [];
+
+// ステータス更新処理（修正版）
 if(isset($_POST['update_preorder_status'])) {
     $preorder_id = intval($_POST['preorder_id']);
     $new_status = $_POST['status'];
     $estimated_delivery = $_POST['estimated_delivery'] ?? null;
     
+    // デバッグ情報を記録
+    $debug_info[] = "受信データ - 予約注文ID: {$preorder_id}, 新ステータス: {$new_status}, 配送予定日: {$estimated_delivery}";
+    
     // 有効なステータスかチェック
     $valid_statuses = ['pending', 'confirmed', 'production', 'shipped', 'delivered', 'cancelled'];
-    if(in_array($new_status, $valid_statuses)) {
-        // ステータス更新
-        if($preorder->updateStatus($preorder_id, $new_status)) {
-            // 配送予定日の更新
-            if($estimated_delivery) {
-                $query = "UPDATE preorders SET estimated_delivery = ? WHERE id = ?";
-                $stmt = $db->prepare($query);
-                $stmt->bindParam(1, $estimated_delivery);
-                $stmt->bindParam(2, $preorder_id);
-                $stmt->execute();
+    if(in_array($new_status, $valid_statuses) && $preorder_id > 0) {
+        
+        try {
+            // ステータス更新
+            if($preorder->updateStatus($preorder_id, $new_status)) {
+                // 配送予定日の更新
+                if($estimated_delivery) {
+                    $preorder->updateEstimatedDelivery($preorder_id, $estimated_delivery);
+                }
+                
+                $debug_info[] = "ステータス更新成功";
+                $success_message = "予約注文ステータスを更新しました。";
+                
+                // 成功後にリダイレクト
+                header("Location: preorders.php?updated=1");
+                exit();
+            } else {
+                $debug_info[] = "ステータス更新失敗";
+                $error_message = "ステータスの更新に失敗しました。";
             }
-            
-            $success_message = "予約注文ステータスを更新しました。";
-            header("Location: preorders.php");
-            exit();
-        } else {
-            $error_message = "ステータスの更新に失敗しました。";
+        } catch(Exception $e) {
+            $debug_info[] = "例外発生: " . $e->getMessage();
+            $error_message = "エラーが発生しました: " . $e->getMessage();
         }
     } else {
-        $error_message = "無効なステータスです。";
+        $debug_info[] = "無効なデータ - ステータス: {$new_status}, 予約注文ID: {$preorder_id}";
+        $error_message = "無効なデータです。";
     }
+}
+
+// 更新成功メッセージの表示
+if(isset($_GET['updated']) && $_GET['updated'] == 1) {
+    $success_message = "予約注文ステータスが正常に更新されました。";
 }
 
 // 予約注文キャンセル処理
@@ -75,6 +97,18 @@ include_once "templates/header.php";
         <div class="col-md-10">
             <h2 class="mt-4">予約注文管理</h2>
             
+            <!-- デバッグ情報表示 -->
+            <?php if(!empty($debug_info)): ?>
+            <div class="alert alert-info">
+                <h6>デバッグ情報:</h6>
+                <ul class="mb-0">
+                    <?php foreach($debug_info as $info): ?>
+                        <li><?php echo htmlspecialchars($info); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+            
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <?php echo $success_message; ?>
@@ -99,7 +133,15 @@ include_once "templates/header.php";
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">総予約注文数</h5>
-                            <h3 class="text-primary"><?php echo $preorder->count(); ?></h3>
+                            <h3 class="text-primary">
+                                <?php 
+                                try {
+                                    echo $preorder->count();
+                                } catch(Exception $e) {
+                                    echo "0";
+                                }
+                                ?>
+                            </h3>
                         </div>
                     </div>
                 </div>
@@ -109,10 +151,11 @@ include_once "templates/header.php";
                             <h5 class="card-title">保留中</h5>
                             <h3 class="text-warning">
                                 <?php 
-                                $stmt = $db->prepare("SELECT COUNT(*) as count FROM preorders WHERE status = 'pending'");
-                                $stmt->execute();
-                                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                                echo $row['count'];
+                                try {
+                                    echo $preorder->countByStatus('pending');
+                                } catch(Exception $e) {
+                                    echo "0";
+                                }
                                 ?>
                             </h3>
                         </div>
@@ -124,10 +167,11 @@ include_once "templates/header.php";
                             <h5 class="card-title">製作中</h5>
                             <h3 class="text-info">
                                 <?php 
-                                $stmt = $db->prepare("SELECT COUNT(*) as count FROM preorders WHERE status = 'production'");
-                                $stmt->execute();
-                                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                                echo $row['count'];
+                                try {
+                                    echo $preorder->countByStatus('production');
+                                } catch(Exception $e) {
+                                    echo "0";
+                                }
                                 ?>
                             </h3>
                         </div>
@@ -139,10 +183,11 @@ include_once "templates/header.php";
                             <h5 class="card-title">配送完了</h5>
                             <h3 class="text-success">
                                 <?php 
-                                $stmt = $db->prepare("SELECT COUNT(*) as count FROM preorders WHERE status = 'delivered'");
-                                $stmt->execute();
-                                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                                echo $row['count'];
+                                try {
+                                    echo $preorder->countByStatus('delivered');
+                                } catch(Exception $e) {
+                                    echo "0";
+                                }
                                 ?>
                             </h3>
                         </div>
@@ -173,81 +218,153 @@ include_once "templates/header.php";
                             </thead>
                             <tbody>
                                 <?php
-                                $stmt = $preorder->readAll();
-                                while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                    extract($row);
-                                    ?>
-                                    <tr>
-                                        <td>#<?php echo $id; ?></td>
-                                        <td><?php echo htmlspecialchars($username ?? 'N/A'); ?></td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <?php if($image): ?>
-                                                    <img src="../assets/images/<?php echo htmlspecialchars($image); ?>" alt="<?php echo htmlspecialchars($product_name); ?>" width="40" class="mr-2">
-                                                <?php endif; ?>
-                                                <?php echo htmlspecialchars($product_name ?? 'N/A'); ?>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <?php if($variation_name && $variation_value): ?>
-                                                <?php echo htmlspecialchars($variation_name); ?>: <?php echo htmlspecialchars($variation_value); ?>
-                                            <?php else: ?>
-                                                -
-                                            <?php endif; ?>
-                                        </td>
-                                        <td><?php echo $quantity; ?>個</td>
-                                        <td><?php echo date('Y-m-d', strtotime($created)); ?></td>
-                                        <td>
-                                            <?php if($estimated_delivery): ?>
-                                                <?php echo date('Y-m-d', strtotime($estimated_delivery)); ?>
-                                            <?php else: ?>
-                                                <span class="text-muted">未設定</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php
-                                            switch($status) {
-                                                case 'pending':
-                                                    echo '<span class="badge badge-warning">受付中</span>';
-                                                    break;
-                                                case 'confirmed':
-                                                    echo '<span class="badge badge-info">確定</span>';
-                                                    break;
-                                                case 'production':
-                                                    echo '<span class="badge badge-primary">製作中</span>';
-                                                    break;
-                                                case 'shipped':
-                                                    echo '<span class="badge badge-secondary">発送済</span>';
-                                                    break;
-                                                case 'delivered':
-                                                    echo '<span class="badge badge-success">配送完了</span>';
-                                                    break;
-                                                case 'cancelled':
-                                                    echo '<span class="badge badge-danger">キャンセル</span>';
-                                                    break;
-                                                default:
-                                                    echo '<span class="badge badge-light">不明</span>';
-                                            }
+                                try {
+                                    $stmt = $preorder->readAll();
+                                    if($stmt) {
+                                        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                            // 安全な変数抽出
+                                            $id = $row['id'] ?? 0;
+                                            $username = $row['username'] ?? 'N/A';
+                                            $product_name = $row['product_name'] ?? 'N/A';
+                                            $image = $row['image'] ?? 'no-image.jpg';
+                                            $variation_name = $row['variation_name'] ?? null;
+                                            $variation_value = $row['variation_value'] ?? null;
+                                            $quantity = $row['quantity'] ?? 0;
+                                            $created = $row['created'] ?? '1970-01-01 00:00:00';
+                                            $estimated_delivery = $row['estimated_delivery'] ?? null;
+                                            $status = $row['status'] ?? 'pending';
                                             ?>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group" role="group">
-                                                <button class="btn btn-sm btn-primary" data-toggle="modal" 
-                                                        data-target="#statusModal" 
-                                                        data-preorder-id="<?php echo $id; ?>"
-                                                        data-current-status="<?php echo $status; ?>"
-                                                        data-estimated-delivery="<?php echo $estimated_delivery; ?>">
-                                                    状態変更
-                                                </button>
-                                                <a href="preorder_detail.php?id=<?php echo $id; ?>" class="btn btn-sm btn-info">詳細</a>
-                                                <?php if($status == 'pending' || $status == 'confirmed'): ?>
-                                                <a href="preorders.php?cancel=1&id=<?php echo $id; ?>" class="btn btn-sm btn-danger" 
-                                                   onclick="return confirm('この予約注文をキャンセルしますか？')">キャンセル</a>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <?php
+                                            <tr>
+                                                <td>#<?php echo $id; ?></td>
+                                                <td><?php echo htmlspecialchars($username); ?></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <?php if($image): ?>
+                                                            <img src="../assets/images/<?php echo htmlspecialchars($image); ?>" alt="<?php echo htmlspecialchars($product_name); ?>" width="40" class="mr-2">
+                                                        <?php endif; ?>
+                                                        <?php echo htmlspecialchars($product_name); ?>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <?php if($variation_name && $variation_value): ?>
+                                                        <?php echo htmlspecialchars($variation_name); ?>: <?php echo htmlspecialchars($variation_value); ?>
+                                                    <?php else: ?>
+                                                        -
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td><?php echo $quantity; ?>個</td>
+                                                <td><?php echo date('Y-m-d H:i', strtotime($created)); ?></td>
+                                                <td>
+                                                    <?php if($estimated_delivery): ?>
+                                                        <?php echo date('Y-m-d', strtotime($estimated_delivery)); ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">未設定</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php
+                                                    switch($status) {
+                                                        case 'pending':
+                                                            echo '<span class="badge badge-warning">受付中</span>';
+                                                            break;
+                                                        case 'confirmed':
+                                                            echo '<span class="badge badge-info">確定</span>';
+                                                            break;
+                                                        case 'production':
+                                                            echo '<span class="badge badge-primary">製作中</span>';
+                                                            break;
+                                                        case 'shipped':
+                                                            echo '<span class="badge badge-secondary">発送済</span>';
+                                                            break;
+                                                        case 'delivered':
+                                                            echo '<span class="badge badge-success">配送完了</span>';
+                                                            break;
+                                                        case 'cancelled':
+                                                            echo '<span class="badge badge-danger">キャンセル</span>';
+                                                            break;
+                                                        default:
+                                                            echo '<span class="badge badge-light">' . htmlspecialchars($status) . '</span>';
+                                                    }
+                                                    ?>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-sm btn-primary" 
+                                                                data-toggle="modal" 
+                                                                data-target="#statusModal" 
+                                                                data-preorder-id="<?php echo $id; ?>"
+                                                                data-current-status="<?php echo $status; ?>"
+                                                                data-estimated-delivery="<?php echo $estimated_delivery; ?>">
+                                                            状態変更
+                                                        </button>
+                                                        <a href="preorder_detail.php?id=<?php echo $id; ?>" class="btn btn-sm btn-info">詳細</a>
+                                                        <?php if($status == 'pending' || $status == 'confirmed'): ?>
+                                                        <a href="preorders.php?cancel=1&id=<?php echo $id; ?>" class="btn btn-sm btn-danger" 
+                                                           onclick="return confirm('この予約注文をキャンセルしますか？')">キャンセル</a>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <?php
+                                        }
+                                    }
+                                } catch(Exception $e) {
+                                    echo '<tr><td colspan="9" class="text-center text-danger">データ取得エラー: ' . htmlspecialchars($e->getMessage()) . '</td></tr>';
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 受注生産商品一覧 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>受注生産商品一覧</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>商品ID</th>
+                                    <th>商品名</th>
+                                    <th>カテゴリ</th>
+                                    <th>価格</th>
+                                    <th>制作期間</th>
+                                    <th>予約注文数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                try {
+                                    // 受注生産商品を取得
+                                    $query = "SELECT p.*, c.name as category_name,
+                                                     (SELECT COUNT(*) FROM preorders pr WHERE pr.product_id = p.id) as preorder_count
+                                              FROM products p 
+                                              LEFT JOIN categories c ON p.category_id = c.id 
+                                              WHERE p.is_preorder = 1 
+                                              ORDER BY p.id DESC";
+                                    $stmt = $db->prepare($query);
+                                    $stmt->execute();
+                                    
+                                    while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                        ?>
+                                        <tr>
+                                            <td><?php echo $row['id']; ?></td>
+                                            <td><?php echo htmlspecialchars($row['name']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['category_name'] ?? '未分類'); ?></td>
+                                            <td>¥<?php echo number_format($row['price']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['preorder_period'] ?? '-'); ?></td>
+                                            <td>
+                                                <span class="badge badge-info"><?php echo $row['preorder_count']; ?>件</span>
+                                            </td>
+                                        </tr>
+                                        <?php
+                                    }
+                                } catch(Exception $e) {
+                                    echo '<tr><td colspan="6" class="text-center text-danger">データ取得エラー: ' . htmlspecialchars($e->getMessage()) . '</td></tr>';
                                 }
                                 ?>
                             </tbody>
@@ -293,6 +410,11 @@ include_once "templates/header.php";
                         <input type="date" class="form-control" name="estimated_delivery" id="modal-estimated-delivery">
                         <small class="form-text text-muted">製作中以降のステータスで設定することを推奨します</small>
                     </div>
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>注意:</strong> ステータス変更は予約注文の進捗を反映し、お客様にも通知されます。
+                        </small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">キャンセル</button>
@@ -303,57 +425,103 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<script>
-$(document).ready(function() {
-    // 予約注文ステータス変更モーダルのイベント処理
-    $('#statusModal').on('show.bs.modal', function (event) {
-        var button = $(event.relatedTarget);
-        var preorderId = button.data('preorder-id');
-        var currentStatus = button.data('current-status');
-        var estimatedDelivery = button.data('estimated-delivery');
-        
-        var modal = $(this);
-        modal.find('#modal-preorder-id').val(preorderId);
-        modal.find('#modal-status').val('');
-        modal.find('#modal-estimated-delivery').val(estimatedDelivery || '');
-        
-        // 現在のステータスを表示
-        var statusTexts = {
-            'pending': '受付中',
-            'confirmed': '確定',
-            'production': '製作中',
-            'shipped': '発送済',
-            'delivered': '配送完了',
-            'cancelled': 'キャンセル'
-        };
-        modal.find('#current-status').val(statusTexts[currentStatus] || currentStatus);
-    });
+<!-- jQuery とBootstrap の確実な読み込み -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    // フォーム送信前の確認
-    $('#statusModal form').on('submit', function(e) {
-        var newStatus = $('#modal-status').val();
-        if (!newStatus) {
-            e.preventDefault();
-            alert('新しいステータスを選択してください。');
-            return false;
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - preorders.php');
+    
+    // jQueryが読み込まれるまで待機
+    function waitForJQuery(callback) {
+        if (typeof $ !== 'undefined') {
+            callback();
+        } else {
+            setTimeout(function() {
+                waitForJQuery(callback);
+            }, 100);
         }
+    }
+    
+    waitForJQuery(function() {
+        console.log('jQuery loaded - preorders.php');
         
-        var preorderId = $('#modal-preorder-id').val();
-        var currentStatus = $('#current-status').val();
-        var newStatusText = $('#modal-status option:selected').text();
-        var estimatedDelivery = $('#modal-estimated-delivery').val();
-        
-        var message = '予約注文 #' + preorderId + ' のステータスを変更しますか？\n\n';
-        message += '現在のステータス: ' + currentStatus + '\n';
-        message += '新しいステータス: ' + newStatusText;
-        if(estimatedDelivery) {
-            message += '\n配送予定日: ' + estimatedDelivery;
-        }
-        
-        if (!confirm(message)) {
-            e.preventDefault();
-            return false;
-        }
+        // 予約注文ステータス変更モーダルのイベント処理
+        $('#statusModal').on('show.bs.modal', function (event) {
+            console.log('Preorder modal show event triggered');
+            
+            var button = $(event.relatedTarget);
+            var preorderId = button.data('preorder-id');
+            var currentStatus = button.data('current-status');
+            var estimatedDelivery = button.data('estimated-delivery');
+            
+            console.log('Preorder modal data:', {
+                preorderId: preorderId, 
+                currentStatus: currentStatus,
+                estimatedDelivery: estimatedDelivery
+            });
+            
+            var modal = $(this);
+            modal.find('#modal-preorder-id').val(preorderId);
+            modal.find('#modal-status').val('');
+            modal.find('#modal-estimated-delivery').val(estimatedDelivery || '');
+            
+            // 現在のステータスを表示
+            var statusTexts = {
+                'pending': '受付中',
+                'confirmed': '確定',
+                'production': '製作中',
+                'shipped': '発送済',
+                'delivered': '配送完了',
+                'cancelled': 'キャンセル'
+            };
+            
+            var statusText = statusTexts[currentStatus] || currentStatus;
+            modal.find('#current-status').val(statusText);
+            console.log('Preorder status text set to:', statusText);
+        });
+
+        // フォーム送信前の確認
+        $('#statusModal form').on('submit', function(e) {
+            console.log('Preorder form submit event');
+            
+            var newStatus = $('#modal-status').val();
+            console.log('Selected preorder status:', newStatus);
+            
+            if (!newStatus) {
+                e.preventDefault();
+                alert('新しいステータスを選択してください。');
+                return false;
+            }
+            
+            var preorderId = $('#modal-preorder-id').val();
+            var currentStatus = $('#current-status').val();
+            var newStatusText = $('#modal-status option:selected').text();
+            var estimatedDelivery = $('#modal-estimated-delivery').val();
+            
+            console.log('Preorder form data:', {
+                preorderId: preorderId,
+                currentStatus: currentStatus,
+                newStatus: newStatus,
+                newStatusText: newStatusText,
+                estimatedDelivery: estimatedDelivery
+            });
+            
+            var message = '予約注文 #' + preorderId + ' のステータスを変更しますか？\n\n';
+            message += '現在のステータス: ' + currentStatus + '\n';
+            message += '新しいステータス: ' + newStatusText;
+            if(estimatedDelivery) {
+                message += '\n配送予定日: ' + estimatedDelivery;
+            }
+            
+            if (!confirm(message)) {
+                e.preventDefault();
+                return false;
+            }
+            
+            console.log('Preorder form submission allowed');
+        });
     });
 });
 </script>
