@@ -1,21 +1,40 @@
 <?php
+/**
+ * register.php - 会員登録ページ
+ * 
+ * 新規ユーザーの会員登録処理を行うページです。
+ * ユーザーの基本情報（ユーザー名、メールアドレス、パスワード）を登録します。
+ * 登録成功時は自動的にログイン状態となり、トップページにリダイレクトします。
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッションの開始
 session_start();
-include_once "config/database.php";
-include_once "classes/User.php";
+
+// 必要なファイルのインクルード
+include_once "config/database.php";  // データベース接続情報
+include_once "classes/User.php";     // ユーザークラス
 
 // 既にログイン済みの場合はリダイレクト
+// セキュリティ上、ログイン済みのユーザーは再度登録できないようにします
 if(isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit();
 }
 
+// データベース接続の取得
 $database = new Database();
 $db = $database->getConnection();
 
+// ユーザーオブジェクトの作成
 $user = new User($db);
 
 // 登録処理
 if(isset($_POST['register'])) {
+    // フォームからの入力値を取得
     $user->username = $_POST['username'];
     $user->email = $_POST['email'];
     $user->password = $_POST['password'];
@@ -26,19 +45,23 @@ if(isset($_POST['register'])) {
     } else {
         // ユーザー作成
         if($user->create()) {
-            // 自動ログイン
+            // 登録成功時の処理
+            
+            // 自動ログイン（セッション変数にユーザーIDとユーザー名を保存）
             $_SESSION['user_id'] = $db->lastInsertId();
             $_SESSION['username'] = $user->username;
             
-            // リダイレクト
+            // 新規アカウント作成完了を示すパラメータ付きでリダイレクト
             header('Location: index.php?new_account=1');
             exit();
         } else {
+            // 登録失敗時のエラーメッセージ
             $error_message = "ユーザー登録に失敗しました。このメールアドレスは既に使用されている可能性があります。";
         }
     }
 }
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
@@ -84,4 +107,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<?php include_once "templates/footer.php"; ?>
+<?php 
+// フッターテンプレートのインクルード
+include_once "templates/footer.php"; 
+?>

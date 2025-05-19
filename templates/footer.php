@@ -1,5 +1,25 @@
+<?php
+/**
+ * templates/footer.php - フッターテンプレート
+ * 
+ * すべてのページで使用される共通のフッター部分を定義します。
+ * サイト情報、サイトマップ、連絡先情報、コピーライトなどが含まれます。
+ * また、JavaScript読み込みも行います。
+ * 
+ * 機能：
+ * - サイト情報表示
+ * - サイトマップ（主要リンク）
+ * - 連絡先情報
+ * - コピーライト表示
+ * - JavaScript読み込み（jQuery、Bootstrap、カスタムJS）
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+?>
 </main>
-    <!-- フッター -->
+    <!-- フッター部分開始 -->
     <footer class="bg-dark text-white mt-5 py-4">
         <div class="container">
             <div class="row">
@@ -41,7 +61,7 @@
         </div>
     </footer>
 
-    <!-- JavaScript -->
+    <!-- JavaScript読み込み -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/script.js"></script>

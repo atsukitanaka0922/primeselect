@@ -1,10 +1,18 @@
 <?php
 /**
- * カートページ（在庫チェック・受注生産対応版）
+ * cart.php - ショッピングカートページ
  * 
- * ショッピングカートの内容を表示し、商品の追加、削除、数量変更を行います。
- * 在庫チェック機能と受注生産商品に対応します。
+ * カートの内容を表示し、商品の追加、削除、数量変更を行うページです。
+ * 在庫チェック機能と受注生産商品対応の機能を備えています。
  * 
+ * 主な機能:
+ * - カート内商品の表示
+ * - 商品の追加・削除・数量変更
+ * - 在庫状況のリアルタイムチェック
+ * - 受注生産商品の特別処理
+ * - 合計金額の計算
+ * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
@@ -17,25 +25,29 @@ include_once "config/database.php";
 include_once "classes/Cart.php";
 include_once "classes/Product.php";
 
-// データベース接続
+// データベース接続の初期化
 $database = new Database();
 $db = $database->getConnection();
 
-// ユーザーIDがない場合は仮のIDを生成
+// ユーザーIDの設定（ログイン済みか未ログインかで分岐）
 if(!isset($_SESSION['user_id'])) {
+    // 未ログインの場合は一時IDを生成
     if(!isset($_SESSION['temp_user_id'])) {
         $_SESSION['temp_user_id'] = uniqid();
     }
     $user_id = $_SESSION['temp_user_id'];
 } else {
+    // ログイン済みの場合はユーザーIDを使用
     $user_id = $_SESSION['user_id'];
 }
 
+// クラスのインスタンス化
 $cart = new Cart($db);
 $product = new Product($db);
 
 // カートへのアクション処理
 if(isset($_GET['action'])) {
+    // 商品追加アクション
     if($_GET['action'] == 'add' && isset($_GET['id'])) {
         $product_id = $_GET['id'];
         $quantity = isset($_GET['quantity']) ? intval($_GET['quantity']) : 1;
@@ -71,6 +83,7 @@ if(isset($_GET['action'])) {
         exit();
     }
     
+    // 商品削除アクション
     if($_GET['action'] == 'remove' && isset($_GET['id'])) {
         $id = $_GET['id'];
         
@@ -84,6 +97,7 @@ if(isset($_GET['action'])) {
         exit();
     }
     
+    // 数量更新アクション
     if($_GET['action'] == 'update' && isset($_POST['id']) && isset($_POST['quantity'])) {
         $id = $_POST['id'];
         $quantity = intval($_POST['quantity']);
@@ -127,6 +141,7 @@ if(isset($_GET['action'])) {
     }
 }
 
+// ヘッダーのインクルード
 include_once "templates/header.php";
 ?>
 
@@ -157,11 +172,14 @@ include_once "templates/header.php";
                     </thead>
                     <tbody>
                         <?php
+                        // カート内商品を取得
                         $stmt = $cart->getItems($user_id);
                         $total = 0;
                         $has_out_of_stock = false;
                         
+                        // カート内の各商品を処理
                         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            // extract関数でデータを変数に展開（危険な可能性があるのでサニタイズが必要）
                             extract($row);
                             
                             // バリエーションがある場合、価格を調整
@@ -170,6 +188,7 @@ include_once "templates/header.php";
                                 $item_price += $price_adjustment;
                             }
                             
+                            // 小計を計算
                             $subtotal = $item_price * $quantity;
                             
                             // 受注生産商品かどうかチェック
@@ -252,6 +271,7 @@ include_once "templates/header.php";
                             <?php
                         }
                         
+                        // カートが空の場合
                         if($stmt->rowCount() == 0) {
                             echo '<tr><td colspan="6" class="text-center">カートに商品がありません</td></tr>';
                         }

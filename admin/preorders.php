@@ -1,40 +1,59 @@
 <?php
 /**
- * 予約注文管理ページ（管理者用）- 修正版
+ * preorders.php - 予約注文管理ページ（管理者用）
  * 
- * 受注生産バグ修正に対応した管理画面
+ * 受注生産商品に対する予約注文を管理するための管理者用ページです。
+ * 予約注文一覧の表示、ステータス更新、詳細確認などの機能を提供します。
  * 
+ * 主な機能:
+ * - 予約注文一覧の表示
+ * - 予約注文ステータスの更新
+ * - 予約注文のキャンセル
+ * - 受注生産商品の一覧表示
+ * - 統計情報の表示
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.1
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "../config/database.php";
 include_once "../classes/Preorder.php";
 include_once "../classes/Product.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がない場合はログインページにリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続の確立
 $database = new Database();
 $db = $database->getConnection();
 
+// 予約注文と商品クラスのインスタンス化
 $preorder = new Preorder($db);
 $product = new Product($db);
 
-// デバッグ情報を追加
+// デバッグ情報を保存する配列
 $debug_info = [];
 
-// ステータス更新処理（修正版）
+/**
+ * 予約注文ステータス更新処理
+ * POST リクエストから予約注文ID、新しいステータス、配送予定日を受け取り、
+ * データベースを更新します。
+ */
 if(isset($_POST['update_preorder_status'])) {
     $preorder_id = intval($_POST['preorder_id']);
     $new_status = $_POST['status'];
     $estimated_delivery = $_POST['estimated_delivery'] ?? null;
     
-    // デバッグ情報を記録
+    // デバッグ情報の記録
     $debug_info[] = "受信データ - 予約注文ID: {$preorder_id}, 新ステータス: {$new_status}, 配送予定日: {$estimated_delivery}";
     
     // 有効なステータスかチェック
@@ -42,9 +61,9 @@ if(isset($_POST['update_preorder_status'])) {
     if(in_array($new_status, $valid_statuses) && $preorder_id > 0) {
         
         try {
-            // ステータス更新
+            // ステータス更新の実行
             if($preorder->updateStatus($preorder_id, $new_status)) {
-                // 配送予定日の更新
+                // 配送予定日の更新（設定されている場合のみ）
                 if($estimated_delivery) {
                     $preorder->updateEstimatedDelivery($preorder_id, $estimated_delivery);
                 }
@@ -52,7 +71,7 @@ if(isset($_POST['update_preorder_status'])) {
                 $debug_info[] = "ステータス更新成功";
                 $success_message = "予約注文ステータスを更新しました。";
                 
-                // 成功後にリダイレクト
+                // 成功後にリダイレクト（更新パラメータ付き）
                 header("Location: preorders.php?updated=1");
                 exit();
             } else {
@@ -69,12 +88,16 @@ if(isset($_POST['update_preorder_status'])) {
     }
 }
 
-// 更新成功メッセージの表示
+// 更新成功メッセージの表示（リダイレクト後）
 if(isset($_GET['updated']) && $_GET['updated'] == 1) {
     $success_message = "予約注文ステータスが正常に更新されました。";
 }
 
-// 予約注文キャンセル処理
+/**
+ * 予約注文キャンセル処理
+ * キャンセル要求を受け取り、指定された予約注文のステータスを
+ * 'cancelled'に更新します。
+ */
 if(isset($_GET['cancel']) && isset($_GET['id'])) {
     $preorder_id = intval($_GET['id']);
     if($preorder->updateStatus($preorder_id, 'cancelled')) {
@@ -86,18 +109,22 @@ if(isset($_GET['cancel']) && isset($_GET['id'])) {
     }
 }
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">予約注文管理</h2>
             
-            <!-- デバッグ情報表示 -->
+            <!-- デバッグ情報表示（開発時のみ表示） -->
             <?php if(!empty($debug_info)): ?>
             <div class="alert alert-info">
                 <h6>デバッグ情報:</h6>
@@ -109,6 +136,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
+            <!-- 成功メッセージ表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <?php echo $success_message; ?>
@@ -118,6 +146,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
+            <!-- エラーメッセージ表示 -->
             <?php if(isset($error_message)): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <?php echo $error_message; ?>
@@ -127,7 +156,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
-            <!-- 予約注文統計 -->
+            <!-- 予約注文統計情報 -->
             <div class="row mb-4">
                 <div class="col-md-3">
                     <div class="card">
@@ -138,7 +167,7 @@ include_once "templates/header.php";
                                 try {
                                     echo $preorder->count();
                                 } catch(Exception $e) {
-                                    echo "0";
+                                    echo "0"; // エラー時のフォールバック
                                 }
                                 ?>
                             </h3>
@@ -195,7 +224,7 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- 予約注文一覧 -->
+            <!-- 予約注文一覧テーブル -->
             <div class="card">
                 <div class="card-header">
                     <h5>予約注文一覧</h5>
@@ -219,6 +248,7 @@ include_once "templates/header.php";
                             <tbody>
                                 <?php
                                 try {
+                                    // 全予約注文を取得
                                     $stmt = $preorder->readAll();
                                     if($stmt) {
                                         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -263,6 +293,7 @@ include_once "templates/header.php";
                                                 </td>
                                                 <td>
                                                     <?php
+                                                    // ステータス表示用のバッジスタイル
                                                     switch($status) {
                                                         case 'pending':
                                                             echo '<span class="badge badge-warning">受付中</span>';
@@ -289,6 +320,7 @@ include_once "templates/header.php";
                                                 </td>
                                                 <td>
                                                     <div class="btn-group" role="group">
+                                                        <!-- ステータス変更ボタン -->
                                                         <button class="btn btn-sm btn-primary" 
                                                                 data-toggle="modal" 
                                                                 data-target="#statusModal" 
@@ -297,7 +329,10 @@ include_once "templates/header.php";
                                                                 data-estimated-delivery="<?php echo $estimated_delivery; ?>">
                                                             状態変更
                                                         </button>
+                                                        <!-- 詳細表示ボタン -->
                                                         <a href="preorder_detail.php?id=<?php echo $id; ?>" class="btn btn-sm btn-info">詳細</a>
+                                                        
+                                                        <!-- キャンセルボタン（受付中または確定状態の場合のみ表示） -->
                                                         <?php if($status == 'pending' || $status == 'confirmed'): ?>
                                                         <a href="preorders.php?cancel=1&id=<?php echo $id; ?>" class="btn btn-sm btn-danger" 
                                                            onclick="return confirm('この予約注文をキャンセルしますか？')">キャンセル</a>
@@ -425,7 +460,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- jQuery とBootstrap の確実な読み込み -->
+<!-- JavaScript for the modal functionality -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 

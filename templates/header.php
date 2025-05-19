@@ -1,3 +1,26 @@
+<?php
+/**
+ * templates/header.php - ヘッダーテンプレート
+ * 
+ * すべてのページで使用される共通のヘッダー部分を定義します。
+ * HTML開始タグ、head要素、ナビゲーションバーなどが含まれます。
+ * 
+ * 機能：
+ * - HTMLドキュメント開始部分
+ * - メタタグ（文字コード、ビューポートなど）
+ * - CSS読み込み（Bootstrap、Font Awesome、カスタムCSS）
+ * - サイト名とロゴ表示
+ * - ナビゲーションメニュー
+ * - カテゴリドロップダウン
+ * - 検索フォーム
+ * - ユーザーメニュー（ログイン状態で変化）
+ * - カート内アイテム数表示
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+?>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -125,3 +148,4 @@
         </nav>
     </header>
     <main>
+    <!-- ここからページコンテンツ開始 -->

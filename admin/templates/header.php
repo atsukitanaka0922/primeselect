@@ -1,7 +1,21 @@
 <?php
 /**
- * 管理者用ヘッダーテンプレート - 修正版
+ * admin/templates/header.php - 管理者用ヘッダーテンプレート
  * 
+ * 管理画面のヘッダー部分を定義します。
+ * すべての管理ページで使用される共通ヘッダーです。
+ * 
+ * 含まれる内容:
+ * - HTML開始タグとメタ情報
+ * - CSS読み込み（Bootstrap、FontAwesome、カスタムCSS）
+ * - 管理パネルヘッダー（赤色バー）
+ * - ナビゲーションバー
+ * - 現在のページ名表示
+ * 
+ * セキュリティ機能:
+ * - 管理者権限チェック（未認証は自動的にログインページにリダイレクト）
+ * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.1
  */
@@ -20,13 +34,14 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     <title>Prime Select - 管理パネル</title>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-    <!-- Font Awesome -->
+    <!-- Font Awesome - アイコン -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <!-- カスタムCSS -->
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
+    /* 管理画面専用スタイル */
     .admin-header {
-        background-color: #dc3545;
+        background-color: #dc3545; /* 管理画面は赤色ヘッダーで識別しやすく */
         color: white;
         padding: 10px 0;
     }
@@ -40,7 +55,7 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     </style>
 </head>
 <body>
-    <!-- 管理パネルヘッダー -->
+    <!-- 管理パネルヘッダー - 赤色バー -->
     <div class="admin-header">
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center">
@@ -49,10 +64,13 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
                     <span class="h5 mb-0">管理パネル</span>
                 </div>
                 <div class="d-flex align-items-center">
+                    <!-- ログインユーザー表示 -->
                     <span class="mr-3">ログイン中: <?php echo $_SESSION['username']; ?></span>
+                    <!-- サイトに戻るリンク -->
                     <a href="../index.php" class="text-white mr-3" title="サイトに戻る">
                         <i class="fas fa-home"></i>
                     </a>
+                    <!-- ログアウトリンク -->
                     <a href="../logout.php" class="text-white" title="ログアウト">
                         <i class="fas fa-sign-out-alt"></i>
                     </a>
@@ -61,7 +79,7 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
         </div>
     </div>
     
-    <!-- ナビゲーションバー（ユーザー用とは異なる） -->
+    <!-- ナビゲーションバー（ユーザー用とは異なるデザイン） -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">
@@ -69,10 +87,11 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
                 Prime Select 管理
             </a>
             
-            <!-- ブレッドクラム表示用 -->
+            <!-- 現在のページ名表示 -->
             <div class="navbar-nav ml-auto">
                 <span class="navbar-text">
                     <?php
+                    // 現在のページ名を表示（ファイル名に基づく）
                     $current_page = basename($_SERVER['PHP_SELF']);
                     switch($current_page) {
                         case 'index.php':
@@ -111,4 +130,5 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
         </div>
     </nav>
     
+    <!-- メインコンテンツの開始 -->
     <main class="container-fluid mt-3">

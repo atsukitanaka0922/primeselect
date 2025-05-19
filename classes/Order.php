@@ -1,29 +1,31 @@
 <?php
 /**
- * 注文クラス - Productクラス読み込み修正版
+ * Order.php - 注文管理クラス
  * 
- * 注文情報の管理と操作を行うクラス
- * Productクラスの確実な読み込みを追加
+ * ECサイトの注文処理と管理を担当するクラスです。
+ * 注文の作成、ステータス更新、取得機能などを提供します。
+ * トランザクション処理を用いて、注文と在庫操作の整合性を保証します。
  * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.4
  */
 class Order {
     // データベース接続とテーブル名
-    private $conn;
-    private $table_name = "orders";
+    private $conn;                   // データベース接続オブジェクト
+    private $table_name = "orders";  // 注文テーブル名
     
     // プロパティ
-    public $id;
-    public $user_id;
-    public $total_amount;
-    public $shipping_address;
-    public $payment_method;
-    public $status;
-    public $created;
+    public $id;                      // 注文ID
+    public $user_id;                 // ユーザーID
+    public $total_amount;            // 合計金額
+    public $shipping_address;        // 配送先住所
+    public $payment_method;          // 支払い方法
+    public $status;                  // 注文状態
+    public $created;                 // 注文日時
     
     /**
-     * コンストラクタ
+     * コンストラクタ - データベース接続を初期化
      * 
      * @param PDO $db データベース接続オブジェクト
      */
@@ -32,7 +34,10 @@ class Order {
     }
     
     /**
-     * 注文作成
+     * 注文作成メソッド
+     * 
+     * カートアイテムから注文を作成し、在庫を減少させます。
+     * トランザクション処理により、注文と在庫の整合性を保ちます。
      * 
      * @return int|false 作成成功時は注文ID、失敗時はfalse
      */
@@ -154,7 +159,9 @@ class Order {
     }
     
     /**
-     * 予約注文を作成
+     * 予約注文作成メソッド
+     * 
+     * 受注生産商品の予約注文を作成します。
      * 
      * @param int $order_id 注文ID
      * @param array $item カートアイテム
@@ -187,6 +194,8 @@ class Order {
     /**
      * 受注生産期間から配送予定日を計算
      * 
+     * 受注生産期間の記述から配送予定日を算出します。
+     * 
      * @param string $preorder_period 受注生産期間（例: "約4-6週間"）
      * @return string 配送予定日（Y-m-d形式）
      */
@@ -210,6 +219,8 @@ class Order {
     
     /**
      * トランザクションなしで在庫を更新
+     * 
+     * すでに開始されているトランザクション内で在庫を更新します。
      * 
      * @param Product $product Productオブジェクト
      * @param int $product_id 商品ID
@@ -260,7 +271,9 @@ class Order {
     }
     
     /**
-     * 注文アイテム追加
+     * 注文アイテム追加メソッド
+     * 
+     * 注文に商品を追加します。
      * 
      * @param int $order_id 注文ID
      * @param int $product_id 商品ID
@@ -290,7 +303,9 @@ class Order {
     }
     
     /**
-     * 注文情報取得
+     * 注文情報取得メソッド
+     * 
+     * 注文IDに基づいて注文情報を取得します。
      * 
      * @param int $id 注文ID
      * @return boolean 取得成功ならtrue
@@ -322,7 +337,9 @@ class Order {
     }
     
     /**
-     * 注文アイテム取得
+     * 注文アイテム取得メソッド
+     * 
+     * 注文に含まれる商品を取得します。
      * 
      * @param int $order_id 注文ID
      * @return PDOStatement 結果セット
@@ -342,7 +359,9 @@ class Order {
     }
     
     /**
-     * 注文状態更新
+     * 注文状態更新メソッド
+     * 
+     * 注文のステータスを更新します。
      * 
      * @param int $order_id 注文ID
      * @param string $status 新しいステータス
@@ -359,7 +378,9 @@ class Order {
     }
     
     /**
-     * ユーザーの注文履歴取得
+     * ユーザーの注文履歴取得メソッド
+     * 
+     * 指定されたユーザーの注文履歴を取得します。
      * 
      * @param int $user_id ユーザーID
      * @return PDOStatement 結果セット
@@ -377,7 +398,9 @@ class Order {
     }
     
     /**
-     * 注文数取得（管理パネル用）
+     * 注文数取得メソッド（管理パネル用）
+     * 
+     * 全注文数を取得します。
      * 
      * @return int 注文数
      */
@@ -391,7 +414,9 @@ class Order {
     }
     
     /**
-     * 最近の注文取得（管理パネル用）
+     * 最近の注文取得メソッド（管理パネル用）
+     * 
+     * 最近の注文を取得します。
      * 
      * @param int $limit 取得件数
      * @return PDOStatement 結果セット
@@ -410,7 +435,9 @@ class Order {
     }
     
     /**
-     * 管理者用の全注文取得
+     * 管理者用の全注文取得メソッド
+     * 
+     * 全注文情報または特定ステータスの注文を取得します。
      * 
      * @param string $status 注文ステータス（オプション）
      * @return PDOStatement 結果セット
@@ -439,7 +466,9 @@ class Order {
     }
     
     /**
-     * 注文キャンセル時の在庫復元（修正版）
+     * 注文キャンセル時の在庫復元メソッド
+     * 
+     * 注文をキャンセルし、在庫を元に戻します。
      * 
      * @param int $order_id 注文ID
      * @return boolean 復元成功ならtrue
@@ -510,7 +539,9 @@ class Order {
     }
     
     /**
-     * 売上統計取得
+     * 売上統計取得メソッド
+     * 
+     * 期間ごとの売上統計を取得します。
      * 
      * @param string $period 期間（day, month, year）
      * @return PDOStatement 結果セット
@@ -542,5 +573,15 @@ class Order {
         
         return $stmt;
     }
+    
+    /**
+     * 改善提案:
+     * 
+     * 1. 注文ステータス変更時の通知機能
+     * 2. 注文履歴のエクスポート機能
+     * 3. 日付範囲での注文検索機能
+     * 4. キャンセル期限の設定
+     * 5. 複数配送先対応
+     * 6. 注文分割機能
+     */
 }
-?>

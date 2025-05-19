@@ -1,31 +1,48 @@
 <?php
 /**
- * カテゴリ管理ページ（管理者用）
+ * categories.php - 管理者用カテゴリ管理ページ
  * 
+ * 商品カテゴリの管理（追加、編集、削除）を行うための管理者用ページです。
+ * 
+ * 主な機能:
+ * - カテゴリ一覧の表示
+ * - 新規カテゴリの追加
+ * - カテゴリの編集（モーダルウィンドウを使用）
+ * - カテゴリの削除（関連商品がない場合のみ）
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルを読み込み
 include_once "../config/database.php";
 include_once "../classes/Category.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がなければログインページへリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続を作成
 $database = new Database();
 $db = $database->getConnection();
 
+// カテゴリオブジェクトを初期化
 $category = new Category($db);
 
-// カテゴリ追加処理
+// カテゴリ追加処理 - フォーム送信時
 if(isset($_POST['add_category'])) {
+    // POSTデータからカテゴリ情報を取得
     $name = $_POST['name'];
     $description = $_POST['description'];
     
+    // カテゴリをデータベースに追加
     $query = "INSERT INTO categories SET name = ?, description = ?";
     $stmt = $db->prepare($query);
     $stmt->bindParam(1, $name);
@@ -40,10 +57,12 @@ if(isset($_POST['add_category'])) {
 
 // カテゴリ編集処理
 if(isset($_POST['edit_category'])) {
+    // POSTデータから更新情報を取得
     $id = $_POST['category_id'];
     $name = $_POST['name'];
     $description = $_POST['description'];
     
+    // カテゴリをデータベースで更新
     $query = "UPDATE categories SET name = ?, description = ? WHERE id = ?";
     $stmt = $db->prepare($query);
     $stmt->bindParam(1, $name);
@@ -61,7 +80,7 @@ if(isset($_POST['edit_category'])) {
 if(isset($_GET['delete']) && isset($_GET['id'])) {
     $id = $_GET['id'];
     
-    // 関連商品があるかチェック
+    // 関連商品があるかチェック - 関連商品がある場合は削除できない
     $check_query = "SELECT COUNT(*) as count FROM products WHERE category_id = ?";
     $check_stmt = $db->prepare($check_query);
     $check_stmt->bindParam(1, $id);
@@ -71,6 +90,7 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     if($count_result['count'] > 0) {
         $error_message = "このカテゴリには商品が関連付けられているため削除できません。";
     } else {
+        // 関連商品がなければ削除実行
         $query = "DELETE FROM categories WHERE id = ?";
         $stmt = $db->prepare($query);
         $stmt->bindParam(1, $id);
@@ -83,17 +103,22 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     }
 }
 
+// ヘッダーテンプレートを読み込み
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">カテゴリ管理</h2>
             
+            <!-- 成功/エラーメッセージがあれば表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
             <?php endif; ?>
@@ -148,6 +173,7 @@ include_once "templates/header.php";
                             </thead>
                             <tbody>
                                 <?php
+                                // カテゴリ一覧を取得して表示
                                 $stmt = $category->read();
                                 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                                     // カテゴリごとの商品数を取得
@@ -164,6 +190,7 @@ include_once "templates/header.php";
                                         <td><?php echo $count_result['product_count']; ?>件</td>
                                         <td>
                                             <?php 
+                                            // 作成日の表示形式を整形
                                             if(isset($row['created']) && !empty($row['created']) && $row['created'] != '0000-00-00 00:00:00') {
                                                 echo date('Y-m-d', strtotime($row['created']));
                                             } else {
@@ -172,6 +199,7 @@ include_once "templates/header.php";
                                             ?>
                                         </td>
                                         <td>
+                                            <!-- 編集ボタン - モーダル表示用 -->
                                             <button class="btn btn-sm btn-primary" data-toggle="modal" 
                                                     data-target="#editModal" 
                                                     data-id="<?php echo $row['id']; ?>"
@@ -179,6 +207,8 @@ include_once "templates/header.php";
                                                     data-description="<?php echo htmlspecialchars($row['description'] ?? ''); ?>">
                                                 編集
                                             </button>
+                                            
+                                            <!-- 削除ボタン -->
                                             <a href="categories.php?delete=1&id=<?php echo $row['id']; ?>" 
                                                class="btn btn-sm btn-danger" 
                                                onclick="return confirm('本当に削除しますか？')">削除</a>
@@ -196,7 +226,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- 編集モーダル -->
+<!-- 編集用モーダルウィンドウ -->
 <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -227,9 +257,10 @@ include_once "templates/header.php";
     </div>
 </div>
 
+<!-- モーダルウィンドウの制御用JavaScript -->
 <script>
 $(document).ready(function() {
-    // カテゴリ編集モーダル
+    // カテゴリ編集モーダルのイベント処理
     $('#editModal').on('show.bs.modal', function (event) {
         var button = $(event.relatedTarget);
         var id = button.data('id');

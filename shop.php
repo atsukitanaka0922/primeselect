@@ -1,4 +1,24 @@
 <?php
+/**
+ * shop.php - 商品一覧ページ
+ * 
+ * すべての商品を表示するページです。
+ * カテゴリフィルタ、価格範囲フィルタ、ソート機能、ページネーションを提供します。
+ * 
+ * 機能：
+ * - 商品一覧表示
+ * - カテゴリフィルタリング
+ * - 価格範囲フィルタリング
+ * - ソート機能（名前順、価格順、新着順）
+ * - 商品在庫状況表示
+ * - ページネーション
+ * - 受注生産商品表示
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
 session_start();
 include_once "config/database.php";
 include_once "classes/Product.php";
@@ -13,11 +33,11 @@ $db = $database->getConnection();
 $product = new Product($db);
 
 // ページネーション設定
-$records_per_page = 9;
+$records_per_page = 9;  // 1ページあたりの表示件数
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $from_record_num = ($records_per_page * $page) - $records_per_page;
 
-// カテゴリやフィルタリングの取得
+// フィルタリングパラメータの取得
 $category_id = isset($_GET['category_id']) ? $_GET['category_id'] : null;
 $min_price = isset($_GET['min_price']) ? $_GET['min_price'] : null;
 $max_price = isset($_GET['max_price']) ? $_GET['max_price'] : null;
@@ -26,14 +46,24 @@ $max_price = isset($_GET['max_price']) ? $_GET['max_price'] : null;
 $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'created';
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
 
-// URLクエリパラメータ操作用ヘルパー関数
+/**
+ * URLクエリパラメータ操作用ヘルパー関数
+ * 特定のクエリパラメータを追加または変更します
+ * 
+ * @param string $key パラメータキー
+ * @param string $value パラメータ値
+ * @param string|null $url 対象URL（省略時は現在のURL）
+ * @return string 更新後のURL
+ */
 function add_query_arg($key, $value, $url = null) {
     if ($url === null) {
         $url = $_SERVER['REQUEST_URI'];
     }
     
+    // 既存のパラメータを削除
     $url = preg_replace('/([?&])'.$key.'=[^&]+(&|$)/', '$1', $url);
     
+    // 新しいパラメータを追加
     if (strpos($url, '?') !== false) {
         if (substr($url, -1) !== '&') {
             $url .= '&';
@@ -46,7 +76,7 @@ function add_query_arg($key, $value, $url = null) {
     return rtrim($url, '&');
 }
 
-// 現在のURLを取得
+// 現在のURLを取得（ソートパラメータを除く）
 $current_url = strtok($_SERVER["REQUEST_URI"], '?');
 if (!empty($_SERVER['QUERY_STRING'])) {
     $query_string = $_SERVER['QUERY_STRING'];
@@ -61,10 +91,12 @@ if (!empty($_SERVER['QUERY_STRING'])) {
     }
 }
 
+// ヘッダーテンプレート読み込み
 include_once "templates/header.php";
 ?>
 
 <style>
+/* 商品カードスタイル */
 .card-img-wrapper {
     position: relative;
     overflow: hidden;
@@ -92,8 +124,9 @@ include_once "templates/header.php";
     <h2>商品一覧</h2>
     
     <div class="row">
+        <!-- サイドバー - フィルタリングオプション -->
         <div class="col-md-3">
-            <!-- サイドバーフィルタリングオプション -->
+            <!-- カテゴリフィルター -->
             <div class="card mb-4">
                 <div class="card-header">カテゴリ</div>
                 <div class="card-body">
@@ -111,6 +144,7 @@ include_once "templates/header.php";
                 </div>
             </div>
             
+            <!-- 価格範囲フィルター -->
             <div class="card mb-4">
                 <div class="card-header">価格帯</div>
                 <div class="card-body">
@@ -132,6 +166,7 @@ include_once "templates/header.php";
             </div>
         </div>
         
+        <!-- メインコンテンツ - 商品一覧 -->
         <div class="col-md-9">
             <!-- ソートオプション -->
             <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -149,27 +184,35 @@ include_once "templates/header.php";
                 </div>
             </div>
             
+            <!-- 商品一覧表示 -->
             <div class="row">
                 <?php
-                // クエリ実行
+                // フィルタに基づいてクエリ実行
                 if($category_id && $min_price && $max_price) {
-                    // カテゴリと価格範囲でフィルタリング
-                    // 実装略（カテゴリとプライスレンジを組み合わせたメソッドが必要）
+                    // カテゴリと価格範囲でフィルタリング（実装していない場合はカテゴリのみ）
                     $stmt = $product->getByCategory($category_id, $sort_by, $sort_order);
                 } elseif($category_id) {
+                    // カテゴリのみでフィルタリング
                     $stmt = $product->getByCategory($category_id, $sort_by, $sort_order);
                 } elseif($min_price && $max_price) {
+                    // 価格範囲のみでフィルタリング
                     $stmt = $product->getByPriceRange($min_price, $max_price, $sort_by, $sort_order);
                 } else {
-                    // ソート機能を使用
+                    // フィルタなし、ソートのみ
                     $stmt = $product->readWithSorting($from_record_num, $records_per_page, $sort_by, $sort_order);
                 }
                 
                 $num = $stmt->rowCount();
                 
                 if($num > 0) {
+                    // 商品データをループして表示
                     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                        extract($row);
+                        // 配列からデータを安全に取得
+                        $id = $row['id'];
+                        $name = $row['name'];
+                        $description = $row['description'];
+                        $price = $row['price'];
+                        $image = $row['image'];
                         
                         // 受注生産情報と在庫情報を取得
                         $preorder_info = $product->getPreorderInfo($id);
@@ -226,6 +269,7 @@ include_once "templates/header.php";
                                     </div>
                                     <?php endif; ?>
                                     
+                                    <!-- 操作ボタン -->
                                     <div class="btn-group" role="group">
                                         <a href="product.php?id=<?php echo $id; ?>" class="btn btn-primary">詳細を見る</a>
                                         
@@ -243,6 +287,7 @@ include_once "templates/header.php";
                         <?php
                     }
                 } else {
+                    // 商品が見つからない場合のメッセージ
                     ?>
                     <div class="col-12">
                         <div class="alert alert-info">
@@ -267,11 +312,14 @@ include_once "templates/header.php";
 </div>
 
 <script>
-// 表示されている商品数を更新
+// 表示されている商品数を更新するスクリプト
 document.addEventListener('DOMContentLoaded', function() {
     var productCount = document.querySelectorAll('.card.h-100').length;
     document.getElementById('product-count').textContent = productCount;
 });
 </script>
 
-<?php include_once "templates/footer.php"; ?>
+<?php
+// フッターテンプレート読み込み
+include_once "templates/footer.php";
+?>

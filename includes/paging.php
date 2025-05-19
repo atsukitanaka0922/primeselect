@@ -1,8 +1,20 @@
 <?php
 /**
+ * includes/paging.php - ページネーションヘルパー
+ * 
+ * ページネーションのUI生成を行うヘルパー関数を提供します。
+ * BootstrapのページネーションUIに合わせたHTMLを生成します。
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+/**
  * ページネーションヘルパー関数
  * 
- * ページネーションのUI生成を行います
+ * ページネーションのUI生成を行います。
+ * 前後のページへのリンク、現在のページの強調表示を含みます。
  * 
  * @param int $page 現在のページ番号
  * @param int $total_rows 総レコード数
@@ -11,11 +23,16 @@
  * @return string ページネーションHTML
  */
 function getPaging($page, $total_rows, $records_per_page, $page_url) {
-    // ページネーションオブジェクト
+    // ページネーション情報配列
     $paging_arr = array();
     
     // 総ページ数計算
     $total_pages = ceil($total_rows / $records_per_page);
+    
+    // 0件の場合はページネーション表示しない
+    if ($total_pages <= 0) {
+        return '';
+    }
     
     // クエリ文字列の処理
     $page_url = preg_replace('/&page=[0-9]+/', '', $page_url);
@@ -24,7 +41,7 @@ function getPaging($page, $total_rows, $records_per_page, $page_url) {
     // 現在のページ
     $paging_arr["current_page"] = $page;
     
-    // 前後の最大ページ数
+    // 前後に表示するページリンクの数
     $max_links = 2;
     
     // 前のページがあるか
@@ -51,7 +68,7 @@ function getPaging($page, $total_rows, $records_per_page, $page_url) {
         $paging_arr["pages"][] = $i;
     }
     
-    // HTML生成
+    // HTMLの生成
     $html = '<nav aria-label="Page navigation">';
     $html .= '<ul class="pagination justify-content-center">';
     
@@ -65,6 +82,7 @@ function getPaging($page, $total_rows, $records_per_page, $page_url) {
     // ページ番号
     foreach($paging_arr["pages"] as $p) {
         if($p == $page) {
+            // 現在のページは強調表示
             $html .= '<li class="page-item active"><a class="page-link" href="#">' . $p . '</a></li>';
         } else {
             $html .= '<li class="page-item"><a class="page-link" href="' . $page_url . $separator . 'page=' . $p . '">' . $p . '</a></li>';
@@ -83,4 +101,14 @@ function getPaging($page, $total_rows, $records_per_page, $page_url) {
     
     return $html;
 }
-?>
+
+/**
+ * 改善提案:
+ * 
+ * 1. 最初と最後のページへのリンクを追加
+ * 2. ページが多い場合の省略表示（...）の追加
+ * 3. 表示するレコード数を変更するオプションの追加
+ * 4. 総レコード数と表示ページの情報表示
+ * 5. AJAX対応（ページ遷移時の非同期読み込み）
+ * 6. URLパラメータを維持したままページ切り替え機能の強化
+ */

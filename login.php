@@ -1,5 +1,27 @@
 <?php
+/**
+ * login.php - ユーザーログインページ
+ * 
+ * ユーザーのログイン処理を行うページです。
+ * メールアドレスとパスワードによる認証を実行します。
+ * 
+ * 機能：
+ * - ログインフォーム表示
+ * - 認証処理
+ * - エラーメッセージ表示
+ * - 管理者/一般ユーザーの振り分け
+ * - セッション管理
+ * - リダイレクト処理
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "config/database.php";
 include_once "classes/User.php";
 
@@ -14,23 +36,27 @@ if(isset($_SESSION['user_id'])) {
     exit();
 }
 
+// データベース接続
 $database = new Database();
 $db = $database->getConnection();
 
+// ユーザーオブジェクト
 $user = new User($db);
 
-// ログイン処理
+// ログイン処理（フォーム送信時）
 if(isset($_POST['login'])) {
+    // POSTデータをオブジェクトに設定
     $user->email = $_POST['email'];
     $user->password = $_POST['password'];
     
+    // ログイン認証実行
     $result = $user->login();
     
     if($result) {
-        // セッション情報を設定（is_adminフラグも含める）
+        // 認証成功: セッション情報を設定
         $_SESSION['user_id'] = $result['id'];
         $_SESSION['username'] = $result['username'];
-        $_SESSION['is_admin'] = $result['is_admin'];  // 管理者フラグを追加
+        $_SESSION['is_admin'] = $result['is_admin'];  // 管理者フラグ
         
         // 管理者の場合は管理パネルにリダイレクト
         if($result['is_admin'] == 1) {
@@ -47,10 +73,12 @@ if(isset($_POST['login'])) {
         }
         exit();
     } else {
+        // 認証失敗: エラーメッセージを設定
         $error_message = "メールアドレスまたはパスワードが正しくありません。";
     }
 }
 
+// ヘッダーテンプレート読み込み
 include_once "templates/header.php";
 ?>
 
@@ -78,6 +106,7 @@ include_once "templates/header.php";
                         パスワード: user123
                     </div>
                     
+                    <!-- ログインフォーム -->
                     <form method="post">
                         <div class="form-group">
                             <label for="email">メールアドレス</label>
@@ -103,4 +132,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<?php include_once "templates/footer.php"; ?>
+<?php
+// フッターテンプレート読み込み
+include_once "templates/footer.php";
+?>

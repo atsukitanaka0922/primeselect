@@ -1,30 +1,49 @@
 <?php
 /**
- * 在庫管理ページ（管理者用）- jQuery読み込み修正版
+ * stock_management.php - 在庫管理ページ（管理者用）
  * 
- * 商品・バリエーションの在庫確認と更新を行います
- * jQuery読み込み問題を修正
+ * 商品在庫の表示、調整、在庫履歴の管理などを行うための管理者用ページです。
+ * 商品ごとの在庫状況の確認や在庫の増減操作、履歴の確認ができます。
  * 
+ * 主な機能:
+ * - 在庫一覧の表示
+ * - 在庫の追加・減少処理
+ * - 在庫変更履歴の表示
+ * - 在庫調整モーダル
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.2
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "../config/database.php";
 include_once "../classes/Product.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がない場合はログインページにリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続
 $database = new Database();
 $db = $database->getConnection();
 
+// Product クラスのインスタンス化
 $product = new Product($db);
 
-// 在庫更新処理
+// デバッグ情報を保存する配列
+$debug_info = [];
+
+/**
+ * 在庫更新処理
+ * 在庫変更フォームが送信された場合に実行されます。
+ */
 if(isset($_POST['update_stock'])) {
     $product_id = $_POST['product_id'];
     $variation_id = !empty($_POST['variation_id']) ? $_POST['variation_id'] : null;
@@ -35,9 +54,11 @@ if(isset($_POST['update_stock'])) {
     $current_stock = $product->checkStock($product_id, $variation_id)['stock'];
     $new_stock = $current_stock + $quantity_change;
     
+    // 在庫が負の値にならないかチェック
     if($new_stock < 0) {
         $error_message = "在庫が不足します。現在の在庫: " . $current_stock . "個";
     } else {
+        // 在庫を更新
         if($product->updateStock($product_id, $variation_id, $quantity_change, $reason)) {
             $success_message = "在庫を更新しました。新しい在庫: " . $new_stock . "個";
         } else {
@@ -46,11 +67,12 @@ if(isset($_POST['update_stock'])) {
     }
 }
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
 <style>
-/* 在庫管理用スタイル */
+/* 在庫管理ページ用のカスタムスタイル */
 .stock-low {
     color: #dc3545;
     font-weight: bold;
@@ -86,21 +108,26 @@ include_once "templates/header.php";
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">在庫管理</h2>
             
+            <!-- 成功メッセージ表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
             <?php endif; ?>
             
+            <!-- エラーメッセージ表示 -->
             <?php if(isset($error_message)): ?>
             <div class="alert alert-danger"><?php echo $error_message; ?></div>
             <?php endif; ?>
             
-            <!-- 在庫一覧 -->
+            <!-- 在庫一覧テーブル -->
             <div class="card">
                 <div class="card-header">商品在庫一覧</div>
                 <div class="card-body">
@@ -126,7 +153,7 @@ include_once "templates/header.php";
                                     // 受注生産商品かどうかチェック
                                     $preorder_info = $product->getPreorderInfo($product_id);
                                     
-                                    // 受注生産商品でない場合のみ表示
+                                    // 受注生産商品でない場合のみ表示（受注生産品は在庫管理対象外）
                                     if(!$preorder_info['is_preorder']) {
                                         // バリエーションを取得
                                         $variations = $product->getProductVariations($product_id);
@@ -147,6 +174,7 @@ include_once "templates/header.php";
                                                 <td><?php echo $main_stock; ?>個</td>
                                                 <td><span class="badge badge-<?php echo $badge_class; ?>"><?php echo ucfirst($stock_status); ?></span></td>
                                                 <td>
+                                                    <!-- 在庫調整ボタン - モーダル表示 -->
                                                     <button type="button" 
                                                             class="btn btn-sm btn-primary stock-adjust-btn" 
                                                             data-toggle="modal" 
@@ -162,7 +190,7 @@ include_once "templates/header.php";
                                             </tr>
                                             <?php
                                         } else {
-                                            // バリエーションがある場合は各バリエーションを表示
+                                            // バリエーションがある場合は各バリエーションの在庫を表示
                                             foreach($variation_data as $var) {
                                                 $stock_status = $product->getStockStatus($var['stock']);
                                                 $badge_class = $stock_status == 'out_of_stock' ? 'danger' : ($stock_status == 'low_stock' ? 'warning' : 'success');
@@ -174,6 +202,7 @@ include_once "templates/header.php";
                                                     <td><?php echo $var['stock']; ?>個</td>
                                                     <td><span class="badge badge-<?php echo $badge_class; ?>"><?php echo ucfirst($stock_status); ?></span></td>
                                                     <td>
+                                                        <!-- 在庫調整ボタン - モーダル表示 -->
                                                         <button type="button" 
                                                                 class="btn btn-sm btn-primary stock-adjust-btn" 
                                                                 data-toggle="modal" 
@@ -199,7 +228,7 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- 在庫ログ -->
+            <!-- 在庫変更ログ -->
             <div class="card mt-4">
                 <div class="card-header">在庫変更ログ</div>
                 <div class="card-body">
@@ -217,6 +246,7 @@ include_once "templates/header.php";
                             </thead>
                             <tbody>
                                 <?php
+                                // 在庫変更ログを取得（最新20件）
                                 $query = "SELECT psl.*, p.name as product_name, 
                                                  pv.variation_name, pv.variation_value 
                                         FROM product_stock_logs psl 
@@ -235,6 +265,7 @@ include_once "templates/header.php";
                                         <td><?php echo $log['variation_name'] ? htmlspecialchars($log['variation_name'] . ': ' . $log['variation_value']) : '-'; ?></td>
                                         <td>
                                             <?php
+                                            // 在庫変更種別のバッジ表示
                                             switch($log['type']) {
                                                 case 'in':
                                                     echo '<span class="badge badge-success">入庫</span>';
@@ -275,6 +306,7 @@ include_once "templates/header.php";
                     </button>
                 </div>
                 <div class="modal-body">
+                    <!-- 非表示の入力フィールド - 商品IDとバリエーションID -->
                     <input type="hidden" name="product_id" id="modal-product-id">
                     <input type="hidden" name="variation_id" id="modal-variation-id">
                     
@@ -313,14 +345,14 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- JavaScript Libraries を確実に読み込み -->
+<!-- JavaScript Libraries の読み込み -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- 在庫調整モーダル用JavaScript -->
 <script>
 // ページが完全に読み込まれた後に実行
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     console.log('jQuery loaded successfully');
     console.log('在庫管理ページが読み込まれました');
     

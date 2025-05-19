@@ -1,32 +1,47 @@
 <?php
 /**
- * 注文詳細ページ（管理者用）
+ * order_detail.php - 管理者用注文詳細ページ
  * 
- * 管理者が注文の詳細情報を確認し、ステータスを更新できます
+ * 注文の詳細情報を表示し、ステータスの更新や配送情報の管理を行うための管理者用ページです。
  * 
+ * 主な機能:
+ * - 注文基本情報の表示
+ * - 注文商品の一覧表示
+ * - 顧客情報の表示
+ * - 注文ステータスの更新
+ * - トラッキング番号の設定
+ * - 注文のキャンセル処理
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルを読み込み
 include_once "../config/database.php";
 include_once "../classes/Order.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がなければログインページへリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続を作成
 $database = new Database();
 $db = $database->getConnection();
 
+// 注文オブジェクトを初期化
 $order = new Order($db);
 
-// 注文ID取得
+// 注文ID取得 - IDがなければエラー表示
 $id = isset($_GET['id']) ? $_GET['id'] : die('ERROR: Missing ID.');
 
-// 注文情報取得
+// 注文情報を取得
 $order->read($id);
 
 // 注文が存在しない場合はリダイレクト
@@ -40,6 +55,7 @@ if(isset($_POST['update_status'])) {
     $new_status = $_POST['status'];
     $tracking_number = isset($_POST['tracking_number']) ? $_POST['tracking_number'] : '';
     
+    // 注文ステータスを更新
     if($order->updateStatus($id, $new_status)) {
         // トラッキング番号がある場合は更新
         if($tracking_number) {
@@ -60,6 +76,7 @@ if(isset($_POST['update_status'])) {
 
 // 注文キャンセル処理
 if(isset($_GET['cancel']) && $_GET['cancel'] == '1') {
+    // キャンセル処理と在庫復元を実行
     if($order->restoreStockOnCancel($id)) {
         $success_message = "注文をキャンセルしました。在庫も復元されました。";
         // 情報を再読み込み
@@ -76,15 +93,20 @@ $payment_stmt->bindParam(1, $id);
 $payment_stmt->execute();
 $payment_info = $payment_stmt->fetch(PDO::FETCH_ASSOC);
 
+// ヘッダーテンプレートを読み込み
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
+            <!-- パンくずリスト -->
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="index.php">ダッシュボード</a></li>
@@ -95,6 +117,7 @@ include_once "templates/header.php";
             
             <h2 class="mt-4">注文詳細 - #<?php echo $order->id; ?></h2>
             
+            <!-- 成功/エラーメッセージがあれば表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <?php echo $success_message; ?>
@@ -136,6 +159,7 @@ include_once "templates/header.php";
                                             <th>注文状況:</th>
                                             <td>
                                                 <?php
+                                                // 注文ステータスに応じたバッジを表示
                                                 switch($order->status) {
                                                     case 'pending':
                                                         echo '<span class="badge badge-warning badge-pill">保留中</span>';
@@ -168,6 +192,7 @@ include_once "templates/header.php";
                                             <th>お支払い方法:</th>
                                             <td>
                                                 <?php
+                                                // 支払い方法を表示
                                                 switch($order->payment_method) {
                                                     case 'credit_card':
                                                         echo 'クレジットカード';
@@ -187,6 +212,7 @@ include_once "templates/header.php";
                                             <td>
                                                 <?php if($payment_info): ?>
                                                     <?php
+                                                    // 支払いステータスに応じたバッジを表示
                                                     switch($payment_info['payment_status']) {
                                                         case 'completed':
                                                             echo '<span class="badge badge-success">完了</span>';
@@ -209,7 +235,7 @@ include_once "templates/header.php";
                                             <th>トラッキング番号:</th>
                                             <td>
                                                 <?php
-                                                // トラッキング番号を取得
+                                                // トラッキング番号があれば表示
                                                 $tracking_query = "SELECT tracking_number FROM orders WHERE id = ?";
                                                 $tracking_stmt = $db->prepare($tracking_query);
                                                 $tracking_stmt->bindParam(1, $id);
@@ -279,11 +305,20 @@ include_once "templates/header.php";
                                     </thead>
                                     <tbody>
                                         <?php
+                                        // 注文商品を取得して表示
                                         $items = $order->getOrderItems($order->id);
                                         $total_verification = 0;
                                         
                                         while($row = $items->fetch(PDO::FETCH_ASSOC)) {
-                                            extract($row);
+                                            // 商品情報を抽出
+                                            $price = $row['price'];
+                                            $quantity = $row['quantity'];
+                                            $name = $row['name'];
+                                            $image = $row['image'];
+                                            $variation_name = isset($row['variation_name']) ? $row['variation_name'] : null;
+                                            $variation_value = isset($row['variation_value']) ? $row['variation_value'] : null;
+                                            
+                                            // 小計を計算
                                             $subtotal = $price * $quantity;
                                             $total_verification += $subtotal;
                                             ?>
@@ -435,6 +470,7 @@ $(document).ready(function() {
         var status = $(this).val();
         var trackingGroup = $('#tracking-group');
         
+        // 発送済みまたは配達済みの場合にトラッキング番号入力を表示
         if(status === 'shipped' || status === 'delivered') {
             trackingGroup.show();
             $('#tracking_number').prop('required', true);

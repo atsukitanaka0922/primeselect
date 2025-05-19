@@ -1,47 +1,70 @@
 <?php
 /**
- * レポート管理ページ（管理者用）
+ * reports.php - レポート生成ページ（管理者用）
  * 
+ * 管理者向けの売上データや統計情報を表示するページです。
+ * 期間指定による売上推移グラフや売上ランキングなどを生成します。
+ * 
+ * 主な機能:
+ * - 期間選択による売上データの抽出
+ * - 売上推移グラフの表示
+ * - 人気商品のランキング表示（数量・金額別）
+ * - 注文統計の表示
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "../config/database.php";
 include_once "../classes/Order.php";
 include_once "../classes/Product.php";
 include_once "../classes/User.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がない場合はログインページにリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続
 $database = new Database();
 $db = $database->getConnection();
 
+// 各クラスのインスタンス化
 $order = new Order($db);
 $product = new Product($db);
 $user = new User($db);
 
-// 期間設定
-$period = isset($_GET['period']) ? $_GET['period'] : 'month';
-$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
-$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
+/**
+ * レポート期間の設定
+ * GETパラメータから期間を取得、または初期値を設定します
+ */
+$period = isset($_GET['period']) ? $_GET['period'] : 'month'; // デフォルトは月間
+$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01'); // 今月の初日
+$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t'); // 今月の末日
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">レポート</h2>
             
-            <!-- 期間選択 -->
+            <!-- 期間選択フォーム -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h5>レポート期間設定</h5>
@@ -71,14 +94,16 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- 売上統計 -->
+            <!-- 売上統計カード -->
             <div class="row mb-4">
+                <!-- 総売上 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">総売上</h5>
                             <h3 class="text-success">
                                 <?php
+                                // 指定期間内の総売上を取得（キャンセル注文を除く）
                                 $sales_query = "SELECT SUM(total_amount) as total_sales 
                                               FROM orders 
                                               WHERE created BETWEEN ? AND ? 
@@ -94,12 +119,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 注文数 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">注文数</h5>
                             <h3 class="text-primary">
                                 <?php
+                                // 指定期間内の注文数を取得（キャンセル注文を除く）
                                 $orders_query = "SELECT COUNT(*) as total_orders 
                                                FROM orders 
                                                WHERE created BETWEEN ? AND ? 
@@ -115,12 +143,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 平均注文金額 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">平均注文金額</h5>
                             <h3 class="text-info">
                                 <?php
+                                // 指定期間内の平均注文金額を計算（キャンセル注文を除く）
                                 $avg_query = "SELECT AVG(total_amount) as avg_order 
                                             FROM orders 
                                             WHERE created BETWEEN ? AND ? 
@@ -136,12 +167,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 新規ユーザー数 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">新規ユーザー数</h5>
                             <h3 class="text-warning">
                                 <?php
+                                // 指定期間内の新規登録ユーザー数を取得
                                 $new_users_query = "SELECT COUNT(*) as new_users 
                                                   FROM users 
                                                   WHERE created BETWEEN ? AND ?";
@@ -170,8 +204,9 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- 人気商品ランキング -->
+            <!-- 人気商品ランキング（2列レイアウト） -->
             <div class="row">
+                <!-- 売上数量ランキング -->
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
@@ -189,6 +224,7 @@ include_once "templates/header.php";
                                     </thead>
                                     <tbody>
                                         <?php
+                                        // 売上数量ランキングを取得（上位10件）
                                         $popular_query = "SELECT p.name, SUM(oi.quantity) as total_quantity 
                                                         FROM order_items oi 
                                                         JOIN orders o ON oi.order_id = o.id 
@@ -221,6 +257,7 @@ include_once "templates/header.php";
                     </div>
                 </div>
                 
+                <!-- 売上金額ランキング -->
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
@@ -238,6 +275,7 @@ include_once "templates/header.php";
                                     </thead>
                                     <tbody>
                                         <?php
+                                        // 売上金額ランキングを取得（上位10件）
                                         $revenue_query = "SELECT p.name, SUM(oi.price * oi.quantity) as total_revenue 
                                                         FROM order_items oi 
                                                         JOIN orders o ON oi.order_id = o.id 
@@ -274,12 +312,12 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- Chart.js -->
+<!-- Chart.js ライブラリを読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // 売上推移グラフの作成
 <?php
-// 売上推移データの取得
+// 選択された期間タイプに基づいてSQLの日付フォーマット設定
 switch($period) {
     case 'day':
         $format = '%Y-%m-%d';
@@ -291,6 +329,7 @@ switch($period) {
         $format = '%Y-%m';
 }
 
+// 売上推移データの取得
 $chart_query = "SELECT DATE_FORMAT(created, ?) as period, 
                       SUM(total_amount) as total_sales 
                FROM orders 
@@ -304,6 +343,7 @@ $chart_stmt->bindParam(2, $start_date);
 $chart_stmt->bindParam(3, $end_date);
 $chart_stmt->execute();
 
+// グラフ用のデータ配列を作成
 $chart_data = [];
 $chart_labels = [];
 while($row = $chart_stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -312,13 +352,15 @@ while($row = $chart_stmt->fetch(PDO::FETCH_ASSOC)) {
 }
 ?>
 
+// グラフ描画用のJavaScript
 const ctx = document.getElementById('salesChart').getContext('2d');
 
-// 既存のグラフを破棄
+// 既存のグラフを破棄（再描画時に必要）
 if(window.salesChart instanceof Chart) {
     window.salesChart.destroy();
 }
 
+// 新しいグラフを作成
 window.salesChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -369,7 +411,7 @@ window.salesChart = new Chart(ctx, {
     }
 });
 
-// ウィンドウリサイズ時の対応
+// ウィンドウリサイズ時のグラフリサイズ処理
 window.addEventListener('resize', function() {
     if(window.salesChart) {
         window.salesChart.resize();

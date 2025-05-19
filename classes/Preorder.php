@@ -1,30 +1,31 @@
 <?php
 /**
- * 予約注文クラス - バグ修正版
+ * Preorder.php - 予約注文管理クラス
  * 
- * 受注生産商品の予約注文を管理するクラス
- * getUserPreorders メソッドのクエリ修正
+ * 受注生産商品の予約注文を管理するクラスです。
+ * 予約注文の作成、状態管理、取得などの機能を提供します。
  * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.2
  */
 class Preorder {
     // データベース接続とテーブル名
-    private $conn;
-    private $table_name = "preorders";
+    private $conn;                        // データベース接続オブジェクト
+    private $table_name = "preorders";    // 予約注文テーブル名
     
     // プロパティ
-    public $id;
-    public $user_id;
-    public $product_id;
-    public $variation_id;
-    public $quantity;
-    public $estimated_delivery;
-    public $status;
-    public $created;
+    public $id;                           // 予約注文ID
+    public $user_id;                      // ユーザーID
+    public $product_id;                   // 商品ID
+    public $variation_id;                 // バリエーションID
+    public $quantity;                     // 数量
+    public $estimated_delivery;           // 配送予定日
+    public $status;                       // 状態
+    public $created;                      // 作成日時
     
     /**
-     * コンストラクタ
+     * コンストラクタ - データベース接続を初期化
      * 
      * @param PDO $db データベース接続オブジェクト
      */
@@ -33,7 +34,9 @@ class Preorder {
     }
     
     /**
-     * 予約注文作成
+     * 予約注文作成メソッド
+     * 
+     * 新しい予約注文をデータベースに登録します。
      * 
      * @return boolean 作成成功ならtrue
      */
@@ -67,7 +70,9 @@ class Preorder {
     }
     
     /**
-     * ユーザーの予約注文一覧取得（修正版）
+     * ユーザーの予約注文一覧取得メソッド
+     * 
+     * 指定されたユーザーの予約注文を取得します。
      * 
      * @param int $user_id ユーザーID
      * @return PDOStatement 結果セット
@@ -93,7 +98,9 @@ class Preorder {
     }
     
     /**
-     * 予約注文状態更新（デバッグログ付き修正版）
+     * 予約注文状態更新メソッド
+     * 
+     * 予約注文のステータスを更新します。
      * 
      * @param int $preorder_id 予約注文ID
      * @param string $status 新しいステータス
@@ -134,7 +141,9 @@ class Preorder {
     }
     
     /**
-     * 予約注文詳細取得
+     * 予約注文詳細取得メソッド
+     * 
+     * 指定された予約注文の詳細情報を取得します。
      * 
      * @param int $preorder_id 予約注文ID
      * @return array|false 予約注文詳細
@@ -166,7 +175,9 @@ class Preorder {
     }
     
     /**
-     * 予約注文総数取得（管理用）
+     * 予約注文総数取得メソッド（管理用）
+     * 
+     * 予約注文の総数を取得します。
      * 
      * @return int 予約注文総数
      */
@@ -180,7 +191,9 @@ class Preorder {
     }
     
     /**
-     * 最近の予約注文取得（管理用）
+     * 最近の予約注文取得メソッド（管理用）
+     * 
+     * 最近の予約注文を取得します。
      * 
      * @param int $limit 取得件数
      * @return PDOStatement 結果セット
@@ -202,7 +215,9 @@ class Preorder {
     }
     
     /**
-     * 管理者用の全予約注文取得
+     * 管理者用の全予約注文取得メソッド
+     * 
+     * すべての予約注文を取得します。
      * 
      * @return PDOStatement 結果セット
      */
@@ -226,7 +241,10 @@ class Preorder {
     }
     
     /**
-     * 予約注文のキャンセル
+     * 予約注文のキャンセルメソッド
+     * 
+     * 指定された予約注文をキャンセルします。
+     * ユーザー自身の予約注文のみキャンセル可能です。
      * 
      * @param int $preorder_id 予約注文ID
      * @param int $user_id ユーザーID（権限確認用）
@@ -253,7 +271,9 @@ class Preorder {
     }
     
     /**
-     * ステータス別予約注文数取得
+     * ステータス別予約注文数取得メソッド
+     * 
+     * 指定されたステータスの予約注文数を取得します。
      * 
      * @param string $status ステータス
      * @return int 指定ステータスの予約注文数
@@ -269,7 +289,9 @@ class Preorder {
     }
     
     /**
-     * 配送予定日の更新
+     * 配送予定日の更新メソッド
+     * 
+     * 予約注文の配送予定日を更新します。
      * 
      * @param int $preorder_id 予約注文ID
      * @param string $estimated_delivery 配送予定日
@@ -289,5 +311,118 @@ class Preorder {
         
         return $success;
     }
+    
+    /**
+     * 商品別予約注文取得メソッド
+     * 
+     * 指定した商品に関連する予約注文を取得します。
+     * 
+     * @param int $product_id 商品ID
+     * @return PDOStatement 結果セット
+     */
+    public function getProductPreorders($product_id) {
+        $query = "SELECT p.*, u.username, 
+                         pv.variation_name, pv.variation_value 
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN users u ON p.user_id = u.id 
+                  LEFT JOIN product_variations pv ON p.variation_id = pv.id 
+                  WHERE p.product_id = ? 
+                  ORDER BY p.created DESC";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $product_id);
+        $stmt->execute();
+        
+        return $stmt;
+    }
+    
+    /**
+     * ステータス更新履歴の記録メソッド
+     * 
+     * 予約注文のステータス変更履歴を記録します。
+     * 
+     * @param int $preorder_id 予約注文ID
+     * @param string $old_status 旧ステータス
+     * @param string $new_status 新ステータス
+     * @param int $user_id 変更したユーザーID
+     * @return boolean 記録成功ならtrue
+     */
+    public function logStatusChange($preorder_id, $old_status, $new_status, $user_id) {
+        $query = "INSERT INTO preorder_status_logs 
+                  SET preorder_id = ?, 
+                      old_status = ?, 
+                      new_status = ?, 
+                      changed_by = ?";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $preorder_id);
+        $stmt->bindParam(2, $old_status);
+        $stmt->bindParam(3, $new_status);
+        $stmt->bindParam(4, $user_id);
+        
+        return $stmt->execute();
+    }
+    
+    /**
+     * 配送予定日の計算メソッド
+     * 
+     * 受注生産期間から配送予定日を計算します。
+     * 
+     * @param string $preorder_period 受注生産期間の説明
+     * @return string 配送予定日（Y-m-d形式）
+     */
+    public function calculateDeliveryDate($preorder_period) {
+        // 期間の数値部分を抽出（"約4-6週間"から4と6を取得）
+        preg_match('/(\d+)[-〜~]?(\d+)?[週間]*/', $preorder_period, $matches);
+        
+        if(isset($matches[1])) {
+            // 範囲がある場合は最大値を使用
+            $weeks = isset($matches[2]) ? max($matches[1], $matches[2]) : $matches[1];
+            
+            // 現在の日付から指定週数後を計算
+            $delivery_date = date('Y-m-d', strtotime("+{$weeks} weeks"));
+            return $delivery_date;
+        }
+        
+        // デフォルト：4週間後
+        return date('Y-m-d', strtotime('+4 weeks'));
+    }
+    
+    /**
+     * 指定期間の予約注文取得メソッド
+     * 
+     * 指定された期間内の予約注文を取得します。
+     * 
+     * @param string $start_date 開始日
+     * @param string $end_date 終了日
+     * @return PDOStatement 結果セット
+     */
+    public function getPreordersByPeriod($start_date, $end_date) {
+        $query = "SELECT p.*, 
+                         pr.name as product_name, 
+                         u.username 
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN products pr ON p.product_id = pr.id 
+                  LEFT JOIN users u ON p.user_id = u.id 
+                  WHERE p.created BETWEEN ? AND ? 
+                  ORDER BY p.created DESC";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $start_date);
+        $stmt->bindParam(2, $end_date);
+        $stmt->execute();
+        
+        return $stmt;
+    }
+    
+    /**
+     * 改善提案:
+     * 
+     * 1. 予約注文のメール通知システム（ステータス変更時）
+     * 2. 予約注文のキャンセル期限設定
+     * 3. 配送予定日の計算ロジックの強化（休日を考慮）
+     * 4. 予約注文のバッチ処理（自動ステータス更新）
+     * 5. 支払い状況の追跡機能
+     * 6. 部分納品対応機能
+     */
 }
-?>

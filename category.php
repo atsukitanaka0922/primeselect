@@ -1,35 +1,63 @@
 <?php
-include_once "config/database.php";
-include_once "classes/Product.php";
-include_once "classes/Category.php";
+/**
+ * category.php - カテゴリー別商品表示ページ
+ * 
+ * 特定のカテゴリーに属する商品を表示するページです。
+ * 並べ替え機能とフィルタリング機能を備えています。
+ * 
+ * 機能:
+ * - カテゴリーに基づく商品リスト表示
+ * - 商品名、価格、新着順などによる並べ替え
+ * - 価格帯によるフィルタリング
+ * - パンくずリストによるナビゲーション
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
 
-// データベース接続
+// 必要なファイルのインクルード
+include_once "config/database.php";   // データベース接続情報
+include_once "classes/Product.php";   // 商品クラス
+include_once "classes/Category.php";  // カテゴリークラス
+
+// データベース接続の取得
 $database = new Database();
 $db = $database->getConnection();
 
-// カテゴリID取得
+// カテゴリーIDの取得 (URLパラメーターから)
 $category_id = isset($_GET['id']) ? $_GET['id'] : die('ERROR: Missing ID.');
 
-// ソートパラメータの取得
-$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'created';
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
+// ソートパラメーターの取得
+$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'created';  // デフォルトは作成日順
+$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';  // デフォルトは降順
 
-// カテゴリオブジェクト
+// カテゴリーオブジェクトの作成と初期化
 $category = new Category($db);
 $category->id = $category_id;
-$category->readOne();
+$category->readOne();  // カテゴリー情報を取得
 
-// 商品オブジェクト
+// 商品オブジェクトの作成
 $product = new Product($db);
 
-// URLクエリパラメータ操作用ヘルパー関数
+/**
+ * URLクエリパラメーター操作用ヘルパー関数
+ * 指定したキーと値をURLに追加または更新します
+ * 
+ * @param string $key パラメーターキー
+ * @param string $value パラメーター値
+ * @param string $url 対象のURL (省略時は現在のURL)
+ * @return string 更新後のURL
+ */
 function add_query_arg($key, $value, $url = null) {
     if ($url === null) {
         $url = $_SERVER['REQUEST_URI'];
     }
     
+    // 既存のパラメーターを削除
     $url = preg_replace('/([?&])'.$key.'=[^&]+(&|$)/', '$1', $url);
     
+    // 新しいパラメーターを追加
     if (strpos($url, '?') !== false) {
         if (substr($url, -1) !== '&') {
             $url .= '&';
@@ -42,7 +70,7 @@ function add_query_arg($key, $value, $url = null) {
     return rtrim($url, '&');
 }
 
-// 現在のURLを取得
+// 現在のURLを取得 (ソートパラメーターを除く)
 $current_url = strtok($_SERVER["REQUEST_URI"], '?');
 if (!empty($_SERVER['QUERY_STRING'])) {
     $query_string = $_SERVER['QUERY_STRING'];
@@ -52,15 +80,18 @@ if (!empty($_SERVER['QUERY_STRING'])) {
     // sort_byとsort_orderを除去
     unset($query_params['sort_by'], $query_params['sort_order']);
     
+    // 他のパラメーターを維持
     if (!empty($query_params)) {
         $current_url .= '?' . http_build_query($query_params);
     }
 }
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
 <div class="container mt-5">
+    <!-- パンくずリスト -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="index.php">ホーム</a></li>
@@ -69,12 +100,13 @@ include_once "templates/header.php";
         </ol>
     </nav>
 
+    <!-- カテゴリータイトルと説明 -->
     <h2><?php echo $category->name; ?></h2>
     <p><?php echo $category->description; ?></p>
 
     <div class="row">
+        <!-- サイドバー (フィルタリングオプション) -->
         <div class="col-md-3">
-            <!-- サイドバーフィルタリングオプション -->
             <div class="card mb-4">
                 <div class="card-header">価格帯</div>
                 <div class="card-body">
@@ -94,6 +126,7 @@ include_once "templates/header.php";
             </div>
         </div>
         
+        <!-- メインコンテンツ (商品リスト) -->
         <div class="col-md-9">
             <!-- ソートオプション -->
             <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -108,15 +141,22 @@ include_once "templates/header.php";
                 </div>
             </div>
             
+            <!-- 商品リスト -->
             <div class="row">
                 <?php
-                // ソート機能付きでカテゴリ商品を取得
+                // ソート機能付きでカテゴリー商品を取得
                 $stmt = $product->getByCategory($category_id, $sort_by, $sort_order);
                 $num = $stmt->rowCount();
                 
                 if($num > 0) {
+                    // 商品がある場合は各商品を表示
                     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                        extract($row);
+                        // 配列から変数を個別に取り出し
+                        $id = $row['id'];
+                        $name = $row['name'];
+                        $description = $row['description'];
+                        $price = $row['price'];
+                        $image = $row['image'];
                         ?>
                         <div class="col-md-4 mb-4">
                             <div class="card h-100">
@@ -133,6 +173,7 @@ include_once "templates/header.php";
                         <?php
                     }
                 } else {
+                    // 商品がない場合はメッセージを表示
                     ?>
                     <div class="col-12">
                         <div class="alert alert-info">
@@ -147,4 +188,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<?php include_once "templates/footer.php"; ?>
+<?php 
+// フッターテンプレートのインクルード
+include_once "templates/footer.php"; 
+?>

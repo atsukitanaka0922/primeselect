@@ -1,24 +1,42 @@
 <?php
+/**
+ * wishlist.php - お気に入りページ
+ * 
+ * ユーザーのお気に入り商品を表示するページです。
+ * 
+ * 主な機能:
+ * - お気に入り商品一覧の表示
+ * - お気に入りへの追加・削除
+ * - カートへの商品追加
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
 include_once "config/database.php";
 include_once "classes/Wishlist.php";
 include_once "classes/Product.php";
 
-// 未ログインならログインページへ
+// 未ログインならログインページへリダイレクト
 if(!isset($_SESSION['user_id'])) {
     $_SESSION['redirect_to'] = 'wishlist.php';
     header('Location: login.php');
     exit();
 }
 
+// データベース接続の初期化
 $database = new Database();
 $db = $database->getConnection();
 
 $user_id = $_SESSION['user_id'];
 $wishlist = new Wishlist($db);
 
-// アクション処理
+// お気に入りアクション処理
 if(isset($_GET['action'])) {
+    // 商品追加アクション
     if($_GET['action'] == 'add' && isset($_GET['id'])) {
         $wishlist->user_id = $user_id;
         $wishlist->product_id = $_GET['id'];
@@ -35,6 +53,7 @@ if(isset($_GET['action'])) {
         exit();
     }
     
+    // 商品削除アクション
     if($_GET['action'] == 'remove' && isset($_GET['id'])) {
         $wishlist->user_id = $user_id;
         $wishlist->product_id = $_GET['id'];
@@ -68,10 +87,12 @@ include_once "templates/header.php";
     
     <div class="row">
         <?php
+        // お気に入り商品を取得
         $stmt = $wishlist->getUserWishlist($user_id);
         $num = $stmt->rowCount();
         
         if($num > 0) {
+            // お気に入り商品が存在する場合、各商品を表示
             while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 extract($row);
                 ?>
@@ -94,6 +115,7 @@ include_once "templates/header.php";
                 <?php
             }
         } else {
+            // お気に入り商品がない場合のメッセージ
             ?>
             <div class="col-12">
                 <div class="alert alert-info">

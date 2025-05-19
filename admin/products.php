@@ -1,12 +1,25 @@
 <?php
 /**
- * 商品管理ページ（管理者用）
+ * admin/products.php - 管理者用商品管理ページ
  * 
+ * 商品の追加、編集、削除などの管理を行うページです。
+ * 
+ * 主な機能:
+ * - 商品一覧の表示
+ * - 新規商品の追加
+ * - 商品情報の編集
+ * - 商品の削除
+ * - 受注生産商品の管理
+ * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "../config/database.php";
 include_once "../classes/Product.php";
 include_once "../classes/Category.php";
@@ -17,14 +30,17 @@ if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     exit();
 }
 
+// データベース接続の初期化
 $database = new Database();
 $db = $database->getConnection();
 
+// 商品とカテゴリオブジェクトの初期化
 $product = new Product($db);
 $category = new Category($db);
 
 // 商品追加処理
 if(isset($_POST['add_product'])) {
+    // フォームデータの取得
     $product->name = $_POST['name'];
     $product->description = $_POST['description'];
     $product->price = $_POST['price'];
@@ -59,6 +75,7 @@ if(isset($_POST['add_product'])) {
         }
     }
     
+    // 商品の作成
     if($product->create()) {
         $success_message = "商品を追加しました。";
     } else {
@@ -76,17 +93,22 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     }
 }
 
+// ヘッダーのインクルード
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- 左側のサイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツエリア -->
         <div class="col-md-10">
             <h2 class="mt-4">商品管理</h2>
             
+            <!-- 成功・エラーメッセージ表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
             <?php endif; ?>
@@ -103,6 +125,7 @@ include_once "templates/header.php";
                 <div class="card-body">
                     <form method="post" enctype="multipart/form-data">
                         <div class="row">
+                            <!-- 左側のフォーム要素 -->
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="name">商品名 <span class="text-danger">*</span></label>
@@ -117,15 +140,18 @@ include_once "templates/header.php";
                                     <input type="number" class="form-control" id="price" name="price" required>
                                 </div>
                             </div>
+                            
+                            <!-- 右側のフォーム要素 -->
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="category_id">カテゴリ <span class="text-danger">*</span></label>
                                     <select class="form-control" id="category_id" name="category_id" required>
                                         <option value="">選択してください</option>
                                         <?php
+                                        // カテゴリ一覧を取得してプルダウンメニューに表示
                                         $stmt = $category->read();
                                         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                            echo '<option value="' . $row['id'] . '">' . $row['name'] . '</option>';
+                                            echo '<option value="' . $row['id'] . '">' . htmlspecialchars($row['name']) . '</option>';
                                         }
                                         ?>
                                     </select>
@@ -178,19 +204,22 @@ include_once "templates/header.php";
                             </thead>
                             <tbody>
                                 <?php
+                                // 商品一覧を取得して表示
                                 $stmt = $product->read();
                                 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    // データを抽出
                                     extract($row);
                                     ?>
                                     <tr>
                                         <td>
-                                            <img src="../assets/images/<?php echo $image; ?>" alt="<?php echo $name; ?>" width="50">
+                                            <img src="../assets/images/<?php echo $image; ?>" alt="<?php echo htmlspecialchars($name); ?>" width="50">
                                         </td>
-                                        <td><?php echo $name; ?></td>
+                                        <td><?php echo htmlspecialchars($name); ?></td>
                                         <td>¥<?php echo number_format($price); ?></td>
-                                        <td><?php echo $category_name; ?></td>
+                                        <td><?php echo htmlspecialchars($category_name); ?></td>
                                         <td>
                                             <?php 
+                                            // 在庫情報の表示
                                             $stock_info = $product->checkStock($id);
                                             if($product->getPreorderInfo($id)['is_preorder']) {
                                                 echo '<span class="badge badge-info">受注生産</span>';
@@ -201,6 +230,7 @@ include_once "templates/header.php";
                                         </td>
                                         <td>
                                             <?php 
+                                            // 商品タイプの表示
                                             $preorder_info = $product->getPreorderInfo($id);
                                             if($preorder_info['is_preorder']) {
                                                 echo '<span class="badge badge-warning">受注生産</span>';
@@ -210,8 +240,11 @@ include_once "templates/header.php";
                                             ?>
                                         </td>
                                         <td>
+                                            <!-- 操作ボタン -->
                                             <a href="product_edit.php?id=<?php echo $id; ?>" class="btn btn-sm btn-primary">編集</a>
-                                            <a href="products.php?delete=1&id=<?php echo $id; ?>" class="btn btn-sm btn-danger" onclick="return confirm('本当に削除しますか？')">削除</a>
+                                            <a href="products.php?delete=1&id=<?php echo $id; ?>" 
+                                               class="btn btn-sm btn-danger" 
+                                               onclick="return confirm('本当に削除しますか？')">削除</a>
                                         </td>
                                     </tr>
                                     <?php
@@ -227,36 +260,41 @@ include_once "templates/header.php";
 </div>
 
 <script>
-// 受注生産チェックボックスの制御
-document.getElementById('is_preorder').addEventListener('change', function() {
+/**
+ * 受注生産チェックボックスの制御
+ * 受注生産商品の場合は在庫フィールドを無効化する
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const isPreorderCheckbox = document.getElementById('is_preorder');
     const stockField = document.getElementById('stock');
     const preorderPeriodField = document.getElementById('preorder_period');
     
-    if(this.checked) {
-        stockField.value = 0;
-        stockField.disabled = true;
-        preorderPeriodField.required = true;
-    } else {
-        stockField.disabled = false;
-        preorderPeriodField.required = false;
-    }
-});
-
-// フォーム送信時の処理
-document.querySelector('form').addEventListener('submit', function(e) {
-    // 空文字列を適切に処理
-    const stockField = document.getElementById('stock');
-    const isPreorder = document.getElementById('is_preorder').checked;
+    // チェックボックス変更時の処理
+    isPreorderCheckbox.addEventListener('change', function() {
+        if(this.checked) {
+            // 受注生産商品の場合は在庫を0に固定して無効化
+            stockField.value = 0;
+            stockField.disabled = true;
+            preorderPeriodField.required = true;
+        } else {
+            // 通常商品の場合は在庫を編集可能に
+            stockField.disabled = false;
+            preorderPeriodField.required = false;
+        }
+    });
     
-    // 在庫数が空の場合は0を設定
-    if(!stockField.value || stockField.value === '') {
-        stockField.value = 0;
-    }
-    
-    // 受注生産商品の場合は在庫を強制的に0にする
-    if(isPreorder) {
-        stockField.value = 0;
-    }
+    // フォーム送信時の処理
+    document.querySelector('form').addEventListener('submit', function(e) {
+        // 在庫数が空の場合は0を設定
+        if(!stockField.value || stockField.value === '') {
+            stockField.value = 0;
+        }
+        
+        // 受注生産商品の場合は在庫を強制的に0にする
+        if(isPreorderCheckbox.checked) {
+            stockField.value = 0;
+        }
+    });
 });
 </script>
 

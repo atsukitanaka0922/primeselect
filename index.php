@@ -1,20 +1,22 @@
 <?php
 /**
- * Prime Select - ECサイトのメインページ
+ * index.php - Prime Select ECサイトのメインページ
  * 
- * メインページでは最新の商品一覧を表示します。
+ * メインページでは特集商品、おすすめ商品、プロモーションバナーなどを表示します。
+ * サイトのエントリーポイントとなる重要なページです。
  * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
 
-// セッション開始
+// セッション開始（すべてのページで必要）
 session_start();
 
 // 必要なファイルのインクルード
-include_once "config/database.php";
-include_once "classes/Product.php";
-include_once "classes/Category.php";
+include_once "config/database.php";      // データベース接続クラス
+include_once "classes/Product.php";      // 商品クラス
+include_once "classes/Category.php";     // カテゴリクラス
 
 // データベース接続を作成
 $database = new Database();
@@ -22,14 +24,14 @@ $db = $database->getConnection();
 
 // 商品オブジェクトの作成と商品データの取得
 $product = new Product($db);
-$stmt = $product->read();
+$stmt = $product->read();  // すべての商品を取得
 
-// ヘッダーテンプレートのインクルード
+// ヘッダーテンプレートのインクルード（ナビゲーションバーなど）
 include_once "templates/header.php";
 ?>
 
 <div class="container mt-4">
-    <!-- プロモーションバナー -->
+    <!-- プロモーションバナー - サイトのメイン広告エリア -->
     <div class="jumbotron jumbotron-fluid promo-banner">
         <div class="container">
             <div class="row align-items-center">
@@ -45,8 +47,9 @@ include_once "templates/header.php";
         </div>
     </div>
 
-    <!-- 特集商品バナー -->
+    <!-- 特集商品バナー - ユーザーを誘導するためのカテゴリ別バナー -->
     <div class="row mb-4">
+        <!-- 新着商品 -->
         <div class="col-md-4 mb-3">
             <div class="card featured-product-card">
                 <div class="card-body text-center">
@@ -57,6 +60,7 @@ include_once "templates/header.php";
                 </div>
             </div>
         </div>
+        <!-- 人気商品 -->
         <div class="col-md-4 mb-3">
             <div class="card featured-product-card">
                 <div class="card-body text-center">
@@ -67,6 +71,7 @@ include_once "templates/header.php";
                 </div>
             </div>
         </div>
+        <!-- 限定商品 -->
         <div class="col-md-4 mb-3">
             <div class="card featured-product-card">
                 <div class="card-body text-center">
@@ -80,20 +85,27 @@ include_once "templates/header.php";
     </div>
 
     <div class="row">
-        <!-- サイドバー -->
+        <!-- サイドバー - カテゴリリストと人気商品表示 -->
         <div class="col-md-3">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
         
-        <!-- 商品一覧 -->
+        <!-- 商品一覧 - おすすめ商品を表示 -->
         <div class="col-md-9">
             <h3 class="mb-4">おすすめ商品</h3>
             <div class="row">
                 <?php
                 // 商品データをループして表示
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    extract($row);
-                    // メイン画像を取得
+                    // extract()を安全に使用するために配列のキーを検証すべき
+                    // ここでは、extract()を使わずに直接配列アクセスする方が安全
+                    $id = $row['id'];
+                    $name = $row['name'];
+                    $description = $row['description'];
+                    $price = $row['price'];
+                    $image = $row['image'];
+                    
+                    // メイン画像を取得（利用可能な場合）
                     $main_image = $product->getMainImage($id) ?? $image;
                     ?>
                     <div class="col-md-4 mb-4">
@@ -117,6 +129,6 @@ include_once "templates/header.php";
 </div>
 
 <?php 
-// フッターテンプレートのインクルード
+// フッターテンプレートのインクルード（共通フッター情報とJavaScript）
 include_once "templates/footer.php"; 
 ?>

@@ -1,30 +1,50 @@
 <?php
 /**
- * レビュー管理ページ（管理者用）- 修正版
+ * reviews.php - レビュー管理ページ（管理者用）
  * 
+ * 商品レビューの一覧表示、詳細確認、削除などの管理機能を提供します。
+ * レビュー統計情報も表示します。
+ * 
+ * 主な機能:
+ * - レビュー一覧の表示
+ * - レビューの詳細表示（モーダル）
+ * - レビューの削除
+ * - レビュー統計情報の表示
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.1
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルのインクルード
 include_once "../config/database.php";
 include_once "../classes/Review.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がない場合はログインページにリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続
 $database = new Database();
 $db = $database->getConnection();
 
+// Review クラスのインスタンス化
 $review = new Review($db);
 
-// レビュー削除処理
+/**
+ * レビュー削除処理
+ * GETリクエストでdeleteパラメータとidが指定された場合に実行
+ */
 if(isset($_GET['delete']) && isset($_GET['id'])) {
     $review_id = $_GET['id'];
     
+    // レビューを削除
     $query = "DELETE FROM reviews WHERE id = ?";
     $stmt = $db->prepare($query);
     $stmt->bindParam(1, $review_id);
@@ -36,33 +56,41 @@ if(isset($_GET['delete']) && isset($_GET['id'])) {
     }
 }
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">レビュー管理</h2>
             
+            <!-- 成功メッセージ表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
             <?php endif; ?>
             
+            <!-- エラーメッセージ表示 -->
             <?php if(isset($error_message)): ?>
             <div class="alert alert-danger"><?php echo $error_message; ?></div>
             <?php endif; ?>
             
-            <!-- レビュー統計 -->
+            <!-- レビュー統計カード -->
             <div class="row mb-4">
+                <!-- 総レビュー数 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">総レビュー数</h5>
                             <h3 class="text-primary">
                                 <?php
+                                // 総レビュー数を取得
                                 $count_query = "SELECT COUNT(*) as count FROM reviews";
                                 $count_stmt = $db->prepare($count_query);
                                 $count_stmt->execute();
@@ -73,12 +101,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 平均評価 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">平均評価</h5>
                             <h3 class="text-success">
                                 <?php
+                                // 平均評価を取得
                                 $avg_query = "SELECT AVG(rating) as avg_rating FROM reviews";
                                 $avg_stmt = $db->prepare($avg_query);
                                 $avg_stmt->execute();
@@ -89,12 +120,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 5つ星レビュー数 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">5つ星レビュー</h5>
                             <h3 class="text-warning">
                                 <?php
+                                // 5つ星レビュー数を取得
                                 $five_star_query = "SELECT COUNT(*) as count FROM reviews WHERE rating = 5";
                                 $five_star_stmt = $db->prepare($five_star_query);
                                 $five_star_stmt->execute();
@@ -105,12 +139,15 @@ include_once "templates/header.php";
                         </div>
                     </div>
                 </div>
+                
+                <!-- 1つ星レビュー数 -->
                 <div class="col-md-3">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">1つ星レビュー</h5>
                             <h3 class="text-danger">
                                 <?php
+                                // 1つ星レビュー数を取得
                                 $one_star_query = "SELECT COUNT(*) as count FROM reviews WHERE rating = 1";
                                 $one_star_stmt = $db->prepare($one_star_query);
                                 $one_star_stmt->execute();
@@ -123,7 +160,7 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- レビュー一覧 -->
+            <!-- レビュー一覧テーブル -->
             <div class="card">
                 <div class="card-header">
                     <h5>レビュー一覧</h5>
@@ -143,6 +180,7 @@ include_once "templates/header.php";
                             </thead>
                             <tbody>
                                 <?php
+                                // 全レビューを取得（商品名、ユーザー名などの関連情報も結合）
                                 $query = "SELECT r.*, p.name as product_name, p.image, u.username 
                                          FROM reviews r 
                                          LEFT JOIN products p ON r.product_id = p.id 
@@ -152,7 +190,7 @@ include_once "templates/header.php";
                                 $stmt->execute();
                                 
                                 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                    // データの安全化
+                                    // データのサニタイズ（XSS対策）
                                     $comment = htmlspecialchars($row['comment']);
                                     $username = htmlspecialchars($row['username']);
                                     $product_name = htmlspecialchars($row['product_name']);
@@ -185,6 +223,7 @@ include_once "templates/header.php";
                                         </td>
                                         <td><?php echo date('Y-m-d', strtotime($row['created'])); ?></td>
                                         <td>
+                                            <!-- 詳細表示ボタン（モーダル表示） -->
                                             <button type="button" 
                                                     class="btn btn-sm btn-info review-detail-btn" 
                                                     data-toggle="modal" 
@@ -196,6 +235,8 @@ include_once "templates/header.php";
                                                     data-date="<?php echo $date; ?>">
                                                 詳細
                                             </button>
+                                            
+                                            <!-- 削除ボタン -->
                                             <a href="reviews.php?delete=1&id=<?php echo $row['id']; ?>" 
                                                class="btn btn-sm btn-danger" 
                                                onclick="return confirm('このレビューを削除しますか？')">削除</a>
@@ -256,11 +297,12 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- jQueryと Bootstrap のJavaScript -->
+<!-- jQuery と Bootstrap のJavaScript -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// DOM読み込み完了時の処理
 $(document).ready(function() {
     console.log('レビュー管理ページが読み込まれました');
     console.log('レビュー詳細ボタンの数:', $('.review-detail-btn').length);
@@ -269,6 +311,7 @@ $(document).ready(function() {
     $('#reviewModal').on('show.bs.modal', function (event) {
         console.log('レビュー詳細モーダルが開かれました');
         
+        // クリックされたボタンからデータ属性を取得
         var button = $(event.relatedTarget);
         var rating = button.attr('data-rating');
         var comment = button.attr('data-comment');
@@ -284,13 +327,14 @@ $(document).ready(function() {
             date: date
         });
         
+        // モーダルに取得したデータを設定
         var modal = $(this);
         modal.find('#modal-product').text(product || '商品名取得エラー');
         modal.find('#modal-username').text(username || 'ユーザー名取得エラー');
         modal.find('#modal-comment').text(comment || 'コメントなし');
         modal.find('#modal-date').text(date || '日付取得エラー');
         
-        // 星を表示
+        // 星評価の表示設定
         var stars = '';
         var ratingNum = parseInt(rating) || 0;
         for(var i = 1; i <= 5; i++) {
@@ -316,7 +360,7 @@ $(document).ready(function() {
         console.log('レビューモーダルの表示が完了しました');
     });
     
-    // レビュー詳細ボタンクリック時のデバッグ
+    // レビュー詳細ボタンクリック時のデバッグログ
     $('.review-detail-btn').on('click', function(e) {
         console.log('レビュー詳細ボタンがクリックされました');
         console.log('ボタンのdata属性:', this.dataset);

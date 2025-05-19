@@ -1,7 +1,21 @@
 /**
- * Prime Select ECサイト用スタイルシート
+ * style.css - Prime Select ECサイト用スタイルシート
  * 
- * サイト全体のスタイルを定義します
+ * サイト全体のスタイルを定義するCSSファイルです。
+ * Bootstrapをベースに、カスタムスタイルを適用しています。
+ * 
+ * スタイル構成:
+ * - 全体のスタイル
+ * - ナビゲーションとフッター
+ * - 商品カードとプロモーションエリア
+ * - フォームとボタン
+ * - 商品詳細ページ
+ * - レビュー関連
+ * - レスポンシブ対応
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
  */
 
 /* 全体のスタイル */
@@ -11,7 +25,7 @@ body {
     background-color: #f8f9fa;
 }
 
-/* カードのホバーエフェクト */
+/* カードのホバーエフェクト - マウスオーバー時に浮き上がる効果 */
 .card {
     transition: transform 0.3s, box-shadow 0.3s;
 }
@@ -21,7 +35,7 @@ body {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
-/* 商品カード */
+/* 商品カード - 画像サイズと価格表示 */
 .card-img-top {
     height: 200px;
     object-fit: cover;
@@ -32,23 +46,23 @@ body {
     font-weight: bold;
 }
 
-/* ナビゲーションバー */
+/* ナビゲーションバー - 影をつけて立体感を出す */
 .navbar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* フッター */
+/* フッター - 上部に影をつけて区切りを強調 */
 footer {
     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* パンくずリスト */
+/* パンくずリスト - シンプルな表示 */
 .breadcrumb {
     background-color: transparent;
     padding: 0.5rem 0;
 }
 
-/* ページネーション */
+/* ページネーション - アクティブページの強調表示 */
 .pagination .page-link {
     color: #007bff;
 }
@@ -58,13 +72,13 @@ footer {
     border-color: #007bff;
 }
 
-/* フォーム */
+/* フォーム - フォーカス時の強調表示 */
 .form-control:focus {
     border-color: #80bdff;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* ボタン */
+/* ボタン - 色とホバー時の変化 */
 .btn-primary {
     background-color: #007bff;
     border-color: #007bff;
@@ -85,12 +99,12 @@ footer {
     border-color: #1e7e34;
 }
 
-/* レビュー */
+/* レビュー - 星評価の色 */
 .star-rating {
     color: #ffc107;
 }
 
-/* 注文状態バッジ */
+/* 注文状態バッジ - 各ステータスに対応した色 */
 .badge-pending {
     background-color: #ffc107;
 }
@@ -111,7 +125,7 @@ footer {
     background-color: #dc3545;
 }
 
-/* 商品詳細ページ */
+/* 商品詳細ページ - メイン画像とサムネイル */
 .product-main-image {
     border: 1px solid #ddd;
     padding: 5px;
@@ -129,7 +143,7 @@ footer {
     border-color: #007bff;
 }
 
-/* バナーとプロモーションエリア */
+/* バナーとプロモーションエリア - 目立つデザイン */
 .promo-banner {
     background-color: #f8f9fa;
     border-radius: 10px;
@@ -184,7 +198,71 @@ footer {
     color: white;
 }
 
-/* モバイル対応 */
+/* 商品詳細ページの在庫表示 */
+.stock-status .badge {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.product-badge-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.badge-lg {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+/* カート関連のスタイル */
+.cart-item-image {
+    max-width: 80px;
+    max-height: 80px;
+    object-fit: cover;
+}
+
+.cart-summary {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+/* チェックアウトページのスタイル */
+.checkout-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding: 0;
+    list-style: none;
+}
+
+.checkout-steps li {
+    flex: 1;
+    text-align: center;
+    padding: 1rem 0;
+    border-bottom: 3px solid #dee2e6;
+}
+
+.checkout-steps li.active {
+    font-weight: bold;
+    border-color: #007bff;
+}
+
+/* アカウント関連のスタイル */
+.account-sidebar {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.account-sidebar .list-group-item.active {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* モバイル対応 - レスポンシブデザイン */
 @media (max-width: 767.98px) {
     .card-img-top {
         height: 150px;
@@ -211,4 +289,22 @@ footer {
     .featured-product-card {
         margin-bottom: 1rem;
     }
+    
+    .checkout-steps {
+        flex-direction: column;
+    }
+    
+    .checkout-steps li {
+        margin-bottom: 0.5rem;
+    }
 }
+
+/**
+ * 改善提案:
+ * 
+ * 1. CSSプリプロセッサ（SassやLess）の使用
+ * 2. CSS変数の活用によるテーマカラーの一元管理
+ * 3. Flexboxとグリッドレイアウトの積極的な活用
+ * 4. アニメーションの洗練（スムーズな遷移効果）
+ * 5. ダークモード対応
+ */

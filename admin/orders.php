@@ -1,30 +1,47 @@
 <?php
 /**
- * 注文管理ページ（管理者用）- 修正版
+ * orders.php - 管理者用注文管理ページ
  * 
+ * 全注文の一覧表示と管理を行うための管理者用ページです。
+ * 注文ステータスの変更、詳細確認、キャンセル処理などが可能です。
+ * 
+ * 主な機能:
+ * - 注文一覧の表示と検索
+ * - 注文ステータスの一括更新
+ * - 注文の詳細確認
+ * - 注文のキャンセル処理
+ * - 注文統計情報の表示
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルを読み込み
 include_once "../config/database.php";
 include_once "../classes/Order.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がなければログインページへリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
+// データベース接続を作成
 $database = new Database();
 $db = $database->getConnection();
 
+// 注文オブジェクトを初期化
 $order = new Order($db);
 
-// デバッグ情報を追加
+// デバッグ情報の初期化
 $debug_info = [];
 
-// ステータス更新処理（修正版）
+// ステータス更新処理
 if(isset($_POST['update_status'])) {
     $order_id = intval($_POST['order_id']);
     $new_status = $_POST['status'];
@@ -36,7 +53,7 @@ if(isset($_POST['update_status'])) {
     $valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     if(in_array($new_status, $valid_statuses) && $order_id > 0) {
         
-        // 直接SQL実行で確実に更新
+        // 直接SQL実行でステータス更新
         try {
             $query = "UPDATE orders SET status = ? WHERE id = ?";
             $stmt = $db->prepare($query);
@@ -93,6 +110,8 @@ if(isset($_GET['updated']) && $_GET['updated'] == 1) {
 // 注文キャンセル処理
 if(isset($_GET['cancel']) && isset($_GET['id'])) {
     $order_id = intval($_GET['id']);
+    
+    // キャンセル処理と在庫復元を実行
     if($order->restoreStockOnCancel($order_id)) {
         $success_message = "注文をキャンセルしました。在庫も復元されました。";
         header("Location: orders.php");
@@ -102,18 +121,22 @@ if(isset($_GET['cancel']) && isset($_GET['id'])) {
     }
 }
 
+// ヘッダーテンプレートを読み込み
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
             <h2 class="mt-4">注文管理</h2>
             
-            <!-- デバッグ情報表示 -->
+            <!-- デバッグ情報がある場合に表示 -->
             <?php if(!empty($debug_info)): ?>
             <div class="alert alert-info">
                 <h6>デバッグ情報:</h6>
@@ -125,6 +148,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
+            <!-- 成功/エラーメッセージがあれば表示 -->
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <?php echo $success_message; ?>
@@ -143,7 +167,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
-            <!-- 注文統計 -->
+            <!-- 注文統計カード -->
             <div class="row mb-4">
                 <div class="col-md-3">
                     <div class="card">
@@ -214,7 +238,7 @@ include_once "templates/header.php";
                 </div>
             </div>
             
-            <!-- 注文一覧 -->
+            <!-- 注文一覧テーブル -->
             <div class="card">
                 <div class="card-header">
                     <h5>注文一覧</h5>
@@ -236,6 +260,7 @@ include_once "templates/header.php";
                             <tbody>
                                 <?php
                                 try {
+                                    // 全注文を取得
                                     $stmt = $order->getAllOrders();
                                     if($stmt) {
                                         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -294,6 +319,7 @@ include_once "templates/header.php";
                                                 </td>
                                                 <td>
                                                     <div class="btn-group" role="group">
+                                                        <!-- 状態変更ボタン - モーダル表示用 -->
                                                         <button class="btn btn-sm btn-primary" 
                                                                 data-toggle="modal" 
                                                                 data-target="#statusModal" 
@@ -301,7 +327,11 @@ include_once "templates/header.php";
                                                                 data-current-status="<?php echo $status; ?>">
                                                             状態変更
                                                         </button>
+                                                        
+                                                        <!-- 詳細ボタン -->
                                                         <a href="order_detail.php?id=<?php echo $id; ?>" class="btn btn-sm btn-info">詳細</a>
+                                                        
+                                                        <!-- キャンセルボタン - 保留中または処理中の場合のみ表示 -->
                                                         <?php if($status == 'pending' || $status == 'processing'): ?>
                                                         <a href="orders.php?cancel=1&id=<?php echo $id; ?>" class="btn btn-sm btn-danger" 
                                                            onclick="return confirm('この注文をキャンセルしますか？在庫も復元されます。')">キャンセル</a>
@@ -325,7 +355,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- ステータス変更モーダル -->
+<!-- ステータス変更モーダルウィンドウ -->
 <div class="modal fade" id="statusModal" tabindex="-1" role="dialog" aria-labelledby="statusModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -368,7 +398,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- jQuery とBootstrap の確実な読み込み -->
+<!-- jQuery とBootstrap のJS -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 

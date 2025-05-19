@@ -1,44 +1,68 @@
 <?php
 /**
- * 予約注文詳細ページ（管理者用）
+ * preorder_detail.php - 管理者用予約注文詳細ページ
  * 
+ * 受注生産の予約注文詳細情報を表示し、ステータスの更新や配送予定日の設定を行う管理者用ページです。
+ * 
+ * 主な機能:
+ * - 予約注文の基本情報表示
+ * - 商品情報の表示
+ * - ステータス更新
+ * - 配送予定日の設定
+ * - 予約注文のキャンセル処理
+ * 
+ * @package PrimeSelect
+ * @subpackage Admin
  * @author Prime Select Team
  * @version 1.0
  */
 
+// セッション開始
 session_start();
+
+// 必要なファイルを読み込み
 include_once "../config/database.php";
 include_once "../classes/Preorder.php";
 
-// 管理者権限チェック
+// 管理者権限チェック - 権限がなければログインページへリダイレクト
 if(!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
     header('Location: ../login.php');
     exit();
 }
 
-// 予約注文ID取得
+// 予約注文ID取得 - IDがなければエラー表示
 $id = isset($_GET['id']) ? $_GET['id'] : die('ERROR: Missing ID.');
 
+// データベース接続を作成
 $database = new Database();
 $db = $database->getConnection();
 
+// 予約注文オブジェクトを初期化
 $preorder = new Preorder($db);
+
+// 予約注文情報を取得
 $preorder_detail = $preorder->read($id);
 
+// 予約注文が存在しない場合はリダイレクト
 if(!$preorder_detail) {
     header('Location: preorders.php');
     exit();
 }
 
+// ヘッダーテンプレートを読み込み
 include_once "templates/header.php";
 ?>
 
 <div class="container-fluid">
     <div class="row">
+        <!-- サイドバー -->
         <div class="col-md-2">
             <?php include_once "templates/sidebar.php"; ?>
         </div>
+        
+        <!-- メインコンテンツ -->
         <div class="col-md-10">
+            <!-- パンくずリスト -->
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="index.php">ダッシュボード</a></li>
@@ -51,6 +75,7 @@ include_once "templates/header.php";
             
             <div class="row">
                 <div class="col-md-8">
+                    <!-- 予約注文情報カード -->
                     <div class="card mb-4">
                         <div class="card-header">予約注文情報</div>
                         <div class="card-body">
@@ -73,6 +98,7 @@ include_once "templates/header.php";
                                             <th>ステータス:</th>
                                             <td>
                                                 <?php
+                                                // ステータスに応じたバッジを表示
                                                 switch($preorder_detail['status']) {
                                                     case 'pending':
                                                         echo '<span class="badge badge-warning badge-pill">受付中</span>';
@@ -118,6 +144,7 @@ include_once "templates/header.php";
                                             <th>合計金額:</th>
                                             <td>
                                                 <?php 
+                                                // 合計金額計算（バリエーションによる価格調整を考慮）
                                                 $total = $preorder_detail['price'] * $preorder_detail['quantity'];
                                                 if(isset($preorder_detail['price_adjustment'])) {
                                                     $total += $preorder_detail['price_adjustment'] * $preorder_detail['quantity'];
@@ -132,20 +159,23 @@ include_once "templates/header.php";
                         </div>
                     </div>
                     
+                    <!-- 商品情報カード -->
                     <div class="card">
                         <div class="card-header">商品情報</div>
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-4">
+                                    <!-- 商品画像 -->
                                     <img src="../assets/images/<?php echo $preorder_detail['image']; ?>" 
                                          class="img-fluid" alt="<?php echo $preorder_detail['product_name']; ?>">
                                 </div>
                                 <div class="col-md-8">
-                                    <h5><?php echo $preorder_detail['product_name']; ?></h5>
+                                    <!-- 商品情報 -->
+                                    <h5><?php echo htmlspecialchars($preorder_detail['product_name']); ?></h5>
                                     <?php if($preorder_detail['variation_name'] && $preorder_detail['variation_value']): ?>
                                         <p class="text-muted">
-                                            <strong><?php echo $preorder_detail['variation_name']; ?>:</strong> 
-                                            <?php echo $preorder_detail['variation_value']; ?>
+                                            <strong><?php echo htmlspecialchars($preorder_detail['variation_name']); ?>:</strong> 
+                                            <?php echo htmlspecialchars($preorder_detail['variation_value']); ?>
                                         </p>
                                     <?php endif; ?>
                                     <p class="lead">
@@ -165,10 +195,13 @@ include_once "templates/header.php";
                     </div>
                 </div>
                 
+                <!-- 右側サイドバー -->
                 <div class="col-md-4">
+                    <!-- アクションカード -->
                     <div class="card mb-4">
                         <div class="card-header">アクション</div>
                         <div class="card-body">
+                            <!-- ステータス変更ボタン - モーダル表示用 -->
                             <button class="btn btn-primary btn-block" data-toggle="modal" 
                                     data-target="#statusModal" 
                                     data-preorder-id="<?php echo $preorder_detail['id']; ?>"
@@ -176,8 +209,11 @@ include_once "templates/header.php";
                                     data-estimated-delivery="<?php echo $preorder_detail['estimated_delivery']; ?>">
                                 ステータス変更
                             </button>
+                            
+                            <!-- 一覧に戻るボタン -->
                             <a href="preorders.php" class="btn btn-secondary btn-block">一覧に戻る</a>
                             
+                            <!-- キャンセルボタン - 受付中または確定状態の場合のみ表示 -->
                             <?php if($preorder_detail['status'] == 'pending' || $preorder_detail['status'] == 'confirmed'): ?>
                             <a href="preorders.php?cancel=1&id=<?php echo $preorder_detail['id']; ?>" 
                                class="btn btn-danger btn-block" 
@@ -188,6 +224,7 @@ include_once "templates/header.php";
                         </div>
                     </div>
                     
+                    <!-- 履歴カード -->
                     <div class="card">
                         <div class="card-header">履歴</div>
                         <div class="card-body">
@@ -216,7 +253,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<!-- ステータス変更モーダル -->
+<!-- ステータス変更モーダルウィンドウ -->
 <div class="modal fade" id="statusModal" tabindex="-1" role="dialog" aria-labelledby="statusModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -255,7 +292,9 @@ include_once "templates/header.php";
     </div>
 </div>
 
+<!-- モーダルウィンドウ制御用JavaScript -->
 <script>
+// モーダル表示時のイベント処理
 $('#statusModal').on('show.bs.modal', function (event) {
     var button = $(event.relatedTarget);
     var preorderId = button.data('preorder-id');

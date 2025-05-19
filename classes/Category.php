@@ -1,25 +1,27 @@
 <?php
 /**
- * カテゴリクラス
+ * Category.php - カテゴリ管理クラス
  * 
- * 商品カテゴリの管理と操作を行うクラス
+ * 商品カテゴリの管理と操作を行うクラスです。
+ * カテゴリの取得や個別カテゴリの情報取得機能を提供します。
  * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
 class Category {
     // データベース接続とテーブル名
-    private $conn;
-    private $table_name = "categories";
+    private $conn;                       // データベース接続オブジェクト
+    private $table_name = "categories";  // カテゴリテーブル名
     
     // プロパティ
-    public $id;
-    public $name;
-    public $description;
-    public $created;
+    public $id;                         // カテゴリID
+    public $name;                       // カテゴリ名
+    public $description;                // カテゴリの説明
+    public $created;                    // 作成日時
     
     /**
-     * コンストラクタ
+     * コンストラクタ - データベース接続を初期化
      * 
      * @param PDO $db データベース接続オブジェクト
      */
@@ -28,7 +30,9 @@ class Category {
     }
     
     /**
-     * カテゴリー全取得
+     * カテゴリー全取得メソッド
+     * 
+     * すべてのカテゴリをアルファベット順で取得します。
      * 
      * @return PDOStatement 結果セット
      */
@@ -41,9 +45,11 @@ class Category {
     }
     
     /**
-     * 単一カテゴリー取得
+     * 単一カテゴリー取得メソッド
      * 
-     * @return boolean 取得成功ならtrue
+     * 指定したIDのカテゴリ情報を取得します。
+     * 
+     * @return boolean 取得成功ならtrue、失敗（該当カテゴリなし）ならfalse
      */
     public function readOne() {
         $query = "SELECT id, name, description FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
@@ -54,6 +60,7 @@ class Category {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if($row) {
+            // プロパティに値をセット
             $this->name = $row['name'];
             $this->description = $row['description'];
             return true;
@@ -61,5 +68,15 @@ class Category {
         
         return false;
     }
+    
+    /**
+     * 改善提案:
+     * 
+     * 1. カテゴリ作成メソッドの追加
+     * 2. カテゴリ更新メソッドの追加
+     * 3. カテゴリ削除メソッドの追加（関連商品の処理を含む）
+     * 4. カテゴリごとの商品数取得メソッドの追加
+     * 5. 親子関係を持つ階層カテゴリの実装
+     * 6. カテゴリ画像のサポート追加
+     */
 }
-?>

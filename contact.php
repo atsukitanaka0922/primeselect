@@ -1,15 +1,35 @@
 <?php
+/**
+ * contact.php - お問い合わせページ
+ * 
+ * ユーザーからのお問い合わせを受け付けるページです。
+ * メッセージフォームの提供と送信処理を行います。
+ * 
+ * 機能:
+ * - お問い合わせフォームの表示
+ * - メッセージ送信処理
+ * - 注文ID関連のお問い合わせ対応
+ * - ログイン情報の自動入力
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+// セッション開始
 session_start();
 include_once "config/database.php";
 
 // お問い合わせ送信処理
 if(isset($_POST['send_message'])) {
+    // フォームからの入力値を取得
     $name = $_POST['name'];
     $email = $_POST['email'];
     $subject = $_POST['subject'];
     $message = $_POST['message'];
     
-    // メール送信（実際には適切なPHPMailerなどで実装）
+    // メール送信処理（実際には適切なPHPMailerなどで実装）
+    // 注: このサンプルコードでは実際のメール送信は行わず、成功としています
     $to = "info@example.com";
     $message_body = "名前: {$name}\n";
     $message_body .= "メール: {$email}\n";
@@ -17,6 +37,8 @@ if(isset($_POST['send_message'])) {
     $message_body .= "メッセージ:\n{$message}";
     
     // デモ用に送信成功としておく
+    // 実際の実装では、mail()関数やPHPMailerなどのライブラリを使用して
+    // 正しくメール送信し、その結果に基づいて$successを設定する
     $success = true;
     
     if($success) {
@@ -26,10 +48,11 @@ if(isset($_POST['send_message'])) {
     }
 }
 
-// 注文IDが渡された場合は件名に設定
+// 注文IDが渡された場合は件名に設定（注文に関する問い合わせを簡単にするため）
 $order_id = isset($_GET['order_id']) ? $_GET['order_id'] : '';
 $default_subject = $order_id ? "注文 #{$order_id} について" : "";
 
+// ヘッダーテンプレートのインクルード
 include_once "templates/header.php";
 ?>
 
@@ -37,6 +60,7 @@ include_once "templates/header.php";
     <h2>お問い合わせ</h2>
     
     <div class="row">
+        <!-- お問い合わせフォーム -->
         <div class="col-md-8">
             <?php if(isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
@@ -75,6 +99,7 @@ include_once "templates/header.php";
             </div>
         </div>
         
+        <!-- お問い合わせ先情報 -->
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header">お問い合わせ先</div>
@@ -96,4 +121,7 @@ include_once "templates/header.php";
     </div>
 </div>
 
-<?php include_once "templates/footer.php"; ?>
+<?php 
+// フッターテンプレートのインクルード
+include_once "templates/footer.php"; 
+?>

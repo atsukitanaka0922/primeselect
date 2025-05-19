@@ -1,9 +1,22 @@
 <?php
 /**
- * 商品詳細ページ（在庫・受注生産対応版）
+ * product.php - 商品詳細ページ
  * 
- * 単一商品の詳細情報、バリエーション、在庫状況、受注生産情報を表示します。
+ * 単一商品の詳細情報を表示するページです。
+ * 通常商品と受注生産商品の両方に対応し、商品バリエーション、在庫状況、画像ギャラリー、
+ * レビュー機能なども備えています。
  * 
+ * 主な機能:
+ * - 商品基本情報の表示
+ * - 商品画像ギャラリー表示
+ * - 商品バリエーション（サイズ、色など）の選択
+ * - 在庫状況のリアルタイム表示
+ * - 受注生産商品の情報表示
+ * - レビュー表示と投稿
+ * - 関連商品の表示
+ * - お気に入り登録機能
+ * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
@@ -17,44 +30,45 @@ include_once "classes/Product.php";
 include_once "classes/Review.php";
 include_once "classes/Wishlist.php";
 
-// データベース接続
+// データベース接続の初期化
 $database = new Database();
 $db = $database->getConnection();
 
-// 商品ID取得
+// 商品IDの取得（URLパラメータから）
 $id = isset($_GET['id']) ? $_GET['id'] : die('ERROR: Missing ID.');
 
-// 商品オブジェクト
+// 商品オブジェクトの初期化
 $product = new Product($db);
 $product->id = $id;
-$product->readOne();
+$product->readOne(); // 商品情報を取得
 
-// 商品画像取得
+// 商品画像の取得
 $product_images = $product->getProductImages($id);
 
-// 商品バリエーション取得（グループ化）
+// 商品バリエーションの取得（グループ化）
 $variations = $product->getGroupedVariations($id);
 
-// 受注生産情報取得
+// 受注生産情報の取得
 $preorder_info = $product->getPreorderInfo($id);
 
-// 在庫情報取得
+// 在庫情報の取得
 $stock_info = $product->checkStock($id);
 
-// レビューオブジェクト
+// レビューオブジェクトの初期化
 $review = new Review($db);
 
-// お気に入りオブジェクト
+// お気に入りオブジェクトの初期化
 $wishlist = new Wishlist($db);
 $in_wishlist = false;
 
+// ログイン済みユーザーの場合、お気に入り状態をチェック
 if(isset($_SESSION['user_id'])) {
     $wishlist->user_id = $_SESSION['user_id'];
     $wishlist->product_id = $id;
     $in_wishlist = $wishlist->isInWishlist();
 }
 
-// レビュー送信処理
+// レビュー投稿処理
 if(isset($_POST['submit_review']) && isset($_SESSION['user_id'])) {
     $review->product_id = $id;
     $review->user_id = $_SESSION['user_id'];
@@ -72,10 +86,12 @@ if(isset($_POST['submit_review']) && isset($_SESSION['user_id'])) {
 $average_rating = $review->getAverageRating($id);
 $review_count = $review->getReviewCount($id);
 
+// ヘッダーのインクルード
 include_once "templates/header.php";
 ?>
 
 <style>
+/* 商品ページ用のスタイル */
 .product-badge-overlay {
     position: absolute;
     top: 10px;
@@ -94,6 +110,7 @@ include_once "templates/header.php";
 </style>
 
 <div class="container mt-5">
+    <!-- パンくずリスト -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="index.php">ホーム</a></li>
@@ -102,6 +119,7 @@ include_once "templates/header.php";
         </ol>
     </nav>
     
+    <!-- 成功・エラーメッセージ表示 -->
     <?php if(isset($success_message)): ?>
     <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
@@ -111,6 +129,7 @@ include_once "templates/header.php";
     <?php endif; ?>
     
     <div class="row">
+        <!-- 商品画像エリア -->
         <div class="col-md-6">
             <!-- メイン画像表示 -->
             <div class="product-main-image mb-3 position-relative">
@@ -124,7 +143,7 @@ include_once "templates/header.php";
                 <?php endif; ?>
             </div>
             
-            <!-- サムネイル画像表示 -->
+            <!-- サムネイル画像表示（複数画像がある場合） -->
             <?php if($product_images->rowCount() > 1): ?>
             <div class="product-thumbnails d-flex">
                 <?php
@@ -139,6 +158,8 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
         </div>
+        
+        <!-- 商品情報エリア -->
         <div class="col-md-6">
             <h2><?php echo $product->name; ?></h2>
             
@@ -192,6 +213,7 @@ include_once "templates/header.php";
             </div>
             <?php endif; ?>
             
+            <!-- 商品購入フォーム -->
             <form action="cart.php" method="get" class="mb-4">
                 <input type="hidden" name="action" value="add">
                 <input type="hidden" name="id" value="<?php echo $product->id; ?>">
@@ -222,6 +244,7 @@ include_once "templates/header.php";
                 </div>
                 <?php endforeach; ?>
                 
+                <!-- 数量選択 -->
                 <div class="form-group">
                     <label for="quantity">数量</label>
                     <select class="form-control" id="quantity" name="quantity" style="width: 100px;">
@@ -248,6 +271,7 @@ include_once "templates/header.php";
                         </button>
                     <?php endif; ?>
                     
+                    <!-- お気に入りボタン（ログイン済みの場合のみ） -->
                     <?php if(isset($_SESSION['user_id'])): ?>
                         <?php if($in_wishlist): ?>
                             <a href="wishlist.php?action=remove&id=<?php echo $product->id; ?>&redirect=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" class="btn btn-outline-danger btn-lg">
@@ -260,12 +284,13 @@ include_once "templates/header.php";
                         <?php endif; ?>
                     <?php else: ?>
                         <div class="ml-2">
-                            <small class="text-muted">ログインが必要です</small>
+                            <small class="text-muted">お気に入り機能を使用するにはログインが必要です</small>
                         </div>
                     <?php endif; ?>
                 </div>
             </form>
             
+            <!-- 商品情報 -->
             <div class="mt-4">
                 <h5>商品情報</h5>
                 <ul class="list-unstyled">
@@ -290,7 +315,7 @@ include_once "templates/header.php";
             <h3>カスタマーレビュー</h3>
             <hr>
             
-            <!-- レビュー投稿フォーム -->
+            <!-- レビュー投稿フォーム（ログイン済みの場合のみ） -->
             <?php if(isset($_SESSION['user_id'])): ?>
             <div class="card mb-4">
                 <div class="card-header">レビューを投稿する</div>
@@ -368,7 +393,7 @@ include_once "templates/header.php";
             
             <div class="row">
                 <?php
-                // カテゴリが同じ商品を表示
+                // カテゴリが同じ商品を取得して表示
                 $related_products = $product->getByCategory($product->category_id);
                 $count = 0;
                 
@@ -407,7 +432,7 @@ include_once "templates/header.php";
 <!-- バリエーション選択のJavaScript -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // バリエーション選択時の価格更新
+    // バリエーション選択時の価格更新処理
     const variationSelects = document.querySelectorAll('.variation-select');
     const priceDisplay = document.getElementById('product-price-display');
     const stockStatus = document.getElementById('stock-status');
@@ -416,10 +441,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 基本価格を取得
     const basePrice = parseFloat(variationSelects[0]?.dataset.basePrice || 0);
     
+    // 変更イベントリスナーを追加
     variationSelects.forEach(select => {
         select.addEventListener('change', updatePrice);
     });
     
+    // 価格・在庫表示を更新する関数
     function updatePrice() {
         let totalAdjustment = 0;
         let selectedOption = null;

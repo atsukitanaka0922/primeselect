@@ -1,9 +1,18 @@
 <?php
 /**
- * チェックアウトページ（トランザクション修正版）
+ * checkout.php - チェックアウトページ
  * 
- * 購入手続きを行い、配送情報と支払い方法を入力します。
+ * 購入手続きを行い、配送情報と支払い方法を入力するページです。
+ * トランザクション処理により、注文処理と在庫管理を連携させています。
  * 
+ * 主な機能:
+ * - 配送先情報の入力
+ * - 支払い方法の選択
+ * - 注文内容の確認
+ * - 注文処理の実行
+ * - 受注生産商品の予約処理
+ * 
+ * @package PrimeSelect
  * @author Prime Select Team
  * @version 1.0
  */
@@ -20,14 +29,17 @@ include_once "classes/Payment.php";
 
 // 未ログインの場合はログインページへリダイレクト
 if(!isset($_SESSION['user_id'])) {
+    // リダイレクト先をセッションに保存（ログイン後に戻ってこれるように）
     $_SESSION['redirect_to'] = 'checkout.php';
     header('Location: login.php');
     exit();
 }
 
+// データベース接続の初期化
 $database = new Database();
 $db = $database->getConnection();
 
+// クラスのインスタンス化
 $cart = new Cart($db);
 $order = new Order($db);
 $payment = new Payment($db);
@@ -37,7 +49,7 @@ $user_id = $_SESSION['user_id'];
 // 注文処理
 if(isset($_POST['place_order'])) {
     try {
-        // トランザクションが開始されていたら一度ロールバック
+        // 既にトランザクションが開始されていたら一度ロールバック
         if($db->inTransaction()) {
             $db->rollback();
         }
@@ -47,7 +59,7 @@ if(isset($_POST['place_order'])) {
         $order->shipping_address = $_POST['address'];
         $order->payment_method = $_POST['payment_method'];
         
-        // 注文作成
+        // 注文作成（トランザクション処理を含む）
         $order_id = $order->create();
         
         if($order_id) {
@@ -99,6 +111,7 @@ if(isset($_POST['place_order'])) {
     }
 }
 
+// ヘッダーのインクルード
 include_once "templates/header.php";
 ?>
 
@@ -119,6 +132,7 @@ include_once "templates/header.php";
                 <div class="card-header">配送情報</div>
                 <div class="card-body">
                     <form method="post">
+                        <!-- 顧客情報フォーム -->
                         <div class="form-group">
                             <label for="name">お名前 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="name" name="name" required
@@ -138,6 +152,7 @@ include_once "templates/header.php";
                             <textarea class="form-control" id="address" name="address" required></textarea>
                         </div>
                         
+                        <!-- 支払い方法選択 -->
                         <div class="form-group">
                             <label>支払い方法 <span class="text-danger">*</span></label>
                             <div class="form-check">
@@ -154,6 +169,7 @@ include_once "templates/header.php";
                             </div>
                         </div>
                         
+                        <!-- クレジットカード情報フォーム - 支払い方法選択によって表示/非表示を切り替え -->
                         <div id="credit_card_form">
                             <div class="form-group">
                                 <label for="card_number">カード番号 <span class="text-danger">*</span></label>
@@ -186,10 +202,12 @@ include_once "templates/header.php";
                 <div class="card-header">注文概要</div>
                 <div class="card-body">
                     <?php
+                    // カート内商品を取得して表示
                     $stmt = $cart->getItems($user_id);
                     $total = 0;
                     
                     while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        // extract関数でデータを変数に展開
                         extract($row);
                         
                         // バリエーションがある場合、価格を調整
@@ -233,6 +251,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const creditCardForm = document.getElementById('credit_card_form');
     
     function toggleCreditCardForm() {
+        // クレジットカード選択時のみフォームを表示
         if(creditCardRadio.checked) {
             creditCardForm.style.display = 'block';
         } else {
@@ -240,10 +259,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // イベントリスナーを設定
     creditCardRadio.addEventListener('change', toggleCreditCardForm);
     bankTransferRadio.addEventListener('change', toggleCreditCardForm);
     codRadio.addEventListener('change', toggleCreditCardForm);
     
+    // 初期表示時の設定
     toggleCreditCardForm();
 });
 </script>
