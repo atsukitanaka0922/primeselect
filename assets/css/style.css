@@ -1,0 +1,310 @@
+/**
+ * style.css - Prime Select ECサイト用スタイルシート
+ * 
+ * サイト全体のスタイルを定義するCSSファイルです。
+ * Bootstrapをベースに、カスタムスタイルを適用しています。
+ * 
+ * スタイル構成:
+ * - 全体のスタイル
+ * - ナビゲーションとフッター
+ * - 商品カードとプロモーションエリア
+ * - フォームとボタン
+ * - 商品詳細ページ
+ * - レビュー関連
+ * - レスポンシブ対応
+ * 
+ * @package PrimeSelect
+ * @author Prime Select Team
+ * @version 1.0
+ */
+
+/* 全体のスタイル */
+body {
+    font-family: 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴ Pro W3', Meiryo, メイリオ, Osaka, 'MS PGothic', arial, helvetica, sans-serif;
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+/* カードのホバーエフェクト - マウスオーバー時に浮き上がる効果 */
+.card {
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 商品カード - 画像サイズと価格表示 */
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+.card-price {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* ナビゲーションバー - 影をつけて立体感を出す */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* フッター - 上部に影をつけて区切りを強調 */
+footer {
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* パンくずリスト - シンプルな表示 */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.5rem 0;
+}
+
+/* ページネーション - アクティブページの強調表示 */
+.pagination .page-link {
+    color: #007bff;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* フォーム - フォーカス時の強調表示 */
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* ボタン - 色とホバー時の変化 */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* レビュー - 星評価の色 */
+.star-rating {
+    color: #ffc107;
+}
+
+/* 注文状態バッジ - 各ステータスに対応した色 */
+.badge-pending {
+    background-color: #ffc107;
+}
+
+.badge-processing {
+    background-color: #17a2b8;
+}
+
+.badge-shipped {
+    background-color: #007bff;
+}
+
+.badge-delivered {
+    background-color: #28a745;
+}
+
+.badge-cancelled {
+    background-color: #dc3545;
+}
+
+/* 商品詳細ページ - メイン画像とサムネイル */
+.product-main-image {
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.product-thumbnails .thumbnail-item {
+    cursor: pointer;
+    border: 1px solid #ddd;
+    padding: 3px;
+    border-radius: 4px;
+}
+
+.product-thumbnails .thumbnail-item:hover {
+    border-color: #007bff;
+}
+
+/* バナーとプロモーションエリア - 目立つデザイン */
+.promo-banner {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    padding: 2rem 0;
+    background-image: linear-gradient(120deg, #e0f7fa 0%, #f3e5f5 100%);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.promo-banner h2 {
+    color: #333;
+    font-weight: 700;
+}
+
+.promo-banner .lead {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+}
+
+.featured-product-card {
+    transition: transform 0.3s, box-shadow 0.3s;
+    height: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.featured-product-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.featured-product-card img {
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+/* 商品バリエーション関連のスタイル */
+.variation-select {
+    margin-bottom: 15px;
+    max-width: 300px;
+}
+
+.variation-options .btn {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.variation-options .btn-check:checked + .btn,
+.variation-options .btn-check:active + .btn {
+    background-color: #007bff;
+    color: white;
+}
+
+/* 商品詳細ページの在庫表示 */
+.stock-status .badge {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.product-badge-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.badge-lg {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+/* カート関連のスタイル */
+.cart-item-image {
+    max-width: 80px;
+    max-height: 80px;
+    object-fit: cover;
+}
+
+.cart-summary {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+/* チェックアウトページのスタイル */
+.checkout-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding: 0;
+    list-style: none;
+}
+
+.checkout-steps li {
+    flex: 1;
+    text-align: center;
+    padding: 1rem 0;
+    border-bottom: 3px solid #dee2e6;
+}
+
+.checkout-steps li.active {
+    font-weight: bold;
+    border-color: #007bff;
+}
+
+/* アカウント関連のスタイル */
+.account-sidebar {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.account-sidebar .list-group-item.active {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* モバイル対応 - レスポンシブデザイン */
+@media (max-width: 767.98px) {
+    .card-img-top {
+        height: 150px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    
+    .product-thumbnails .thumbnail-item {
+        width: 60px;
+    }
+    
+    .promo-banner {
+        text-align: center;
+        padding: 1.5rem 0;
+    }
+    
+    .promo-banner .col-md-6.text-right {
+        margin-top: 1rem;
+        text-align: center !important;
+    }
+    
+    .featured-product-card {
+        margin-bottom: 1rem;
+    }
+    
+    .checkout-steps {
+        flex-direction: column;
+    }
+    
+    .checkout-steps li {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/**
+ * 改善提案:
+ * 
+ * 1. CSSプリプロセッサ（SassやLess）の使用
+ * 2. CSS変数の活用によるテーマカラーの一元管理
+ * 3. Flexboxとグリッドレイアウトの積極的な活用
+ * 4. アニメーションの洗練（スムーズな遷移効果）
+ * 5. ダークモード対応
+ */
